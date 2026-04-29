@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Violations{% endblock %}
+{% block content %}
+<!-- Warnings -->
+<div class="card" style="margin-bottom:24px">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-exclamation-triangle" style="color:var(--warning);margin-right:8px"></i>Warnings Log</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr><th>Student</th><th>Level</th><th>Reason</th><th>Location</th><th>Time</th></tr>
+            </thead>
+            <tbody>
+                {% for w in warnings %}
+                <tr>
+                    <td><strong>{{ w.user.get_full_name }}</strong></td>
+                    <td>
+                        {% if w.level == 1 %}<span class="badge badge-warning">Warning 1</span>
+                        {% elif w.level == 2 %}<span class="badge badge-warning" style="background:rgba(249,115,22,0.15);color:#fb923c">Warning 2</span>
+                        {% else %}<span class="badge badge-danger">Warning 3</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ w.reason }}</td>
+                    <td>{{ w.camera_location|default:"—" }}</td>
+                    <td>{{ w.created_at|date:"M d, H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px">No warnings recorded</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Violations -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-ban" style="color:var(--danger);margin-right:8px"></i>Violations</h3>
+        <a href="/api/violations/violations/export-csv/" class="btn btn-secondary btn-sm">
+            <i class="fas fa-download"></i> Export CSV
+        </a>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr><th>Student</th><th>Date</th><th>Warnings</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for v in violations %}
+                <tr>
+                    <td><strong>{{ v.user.get_full_name }}</strong></td>
+                    <td>{{ v.date }}</td>
+                    <td>{{ v.warning_count }}</td>
+                    <td>
+                        {% if v.is_expelled %}<span class="badge badge-danger">Expelled</span>
+                        {% else %}<span class="badge badge-warning">{{ v.warning_count }} warnings</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:40px">No violations recorded</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

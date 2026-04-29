@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Cameras{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:24px">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-video" style="color:var(--info);margin-right:8px"></i>Camera Management</h3>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-cam-modal').classList.add('active')">
+            <i class="fas fa-plus"></i> Add Camera
+        </button>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Location</th><th>Type</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for cam in cameras %}
+                <tr>
+                    <td><strong>{{ cam.name }}</strong></td>
+                    <td>{{ cam.location|default:"—" }}</td>
+                    <td><span class="badge badge-purple">{{ cam.get_source_type_display }}</span></td>
+                    <td>
+                        {% if cam.is_monitoring %}<span class="badge badge-success"><i class="fas fa-circle" style="font-size:0.5rem;margin-right:4px"></i>Monitoring</span>
+                        {% elif cam.is_active %}<span class="badge badge-info">Ready</span>
+                        {% else %}<span class="badge badge-warning">Inactive</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if cam.is_monitoring %}
+                        <button class="btn btn-danger btn-sm" onclick="cameraAction('{{ cam.id }}', 'stop')">
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                        {% else %}
+                        <button class="btn btn-success btn-sm" onclick="cameraAction('{{ cam.id }}', 'start')">
+                            <i class="fas fa-play"></i> Start
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px">No cameras configured</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Camera Modal -->
+<div class="modal-overlay" id="add-cam-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Add Camera</h3>
+            <button class="modal-close" onclick="document.getElementById('add-cam-modal').classList.remove('active')">&times;</button>
+        </div>
+        <form id="add-cam-form">
+            <div class="form-group">
+                <label class="form-label">Camera Name</label>
+                <input type="text" class="form-control" name="name" required placeholder="e.g., Library Room A">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Location</label>
+                <input type="text" class="form-control" name="location" placeholder="e.g., Building B, Floor 2">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Source Type</label>
+                <select class="form-control" name="source_type">
+                    <option value="webcam">Local Webcam</option>
+                    <option value="ip">IP Camera (RTSP/MJPEG)</option>
+                    <option value="browser">Browser Webcam</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Source URL / Device Index</label>
+                <input type="text" class="form-control" name="source_url" value="0" placeholder="0 for webcam, or rtsp://...">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%"><i class="fas fa-plus"></i> Add Camera</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function cameraAction(camId, action) {
+    fetch(`/api/monitoring/cameras/${camId}/${action}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+    })
+    .then(r => r.json())
+    .then(d => {
+        showToast(d.status || d.error, d.error ? 'critical' : 'info');
+        setTimeout(() => location.reload(), 1000);
+    });
+}
+
+document.getElementById('add-cam-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    fetch('/api/monitoring/cameras/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    })
+    .then(r => r.json())
+    .then(d => {
+        showToast('Camera added!', 'info');
+        setTimeout(() => location.reload(), 1000);
+    });
+});
+</script>
+{% endblock %}

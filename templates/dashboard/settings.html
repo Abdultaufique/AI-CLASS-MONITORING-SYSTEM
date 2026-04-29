@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="grid-2">
+    <!-- Org Info -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-building" style="color:var(--accent-primary);margin-right:8px"></i>Organization</h3>
+        </div>
+        {% if organization %}
+        <div class="form-group"><label class="form-label">Name</label><div class="form-control">{{ organization.name }}</div></div>
+        <div class="form-group"><label class="form-label">Slug</label><div class="form-control">{{ organization.slug }}</div></div>
+        <div class="form-group"><label class="form-label">Max Cameras</label><div class="form-control">{{ organization.max_cameras }}</div></div>
+        <div class="form-group"><label class="form-label">Max Students</label><div class="form-control">{{ organization.max_students }}</div></div>
+        {% else %}
+        <div class="empty-state"><h3>No Organization</h3><p>Contact admin to set up your organization.</p></div>
+        {% endif %}
+    </div>
+
+    <!-- Rule Config -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-gavel" style="color:var(--warning);margin-right:8px"></i>Rule Configuration</h3>
+        </div>
+        {% if rule_config %}
+        <form id="rules-form">
+            <div class="form-group">
+                <label class="form-label">Max Warnings Per Day</label>
+                <input type="number" class="form-control" name="max_warnings_per_day" value="{{ rule_config.max_warnings_per_day }}" min="1" max="10">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Violations Before Expulsion</label>
+                <input type="number" class="form-control" name="max_violations_before_expel" value="{{ rule_config.max_violations_before_expel }}" min="1" max="20">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Audio Threshold (RMS)</label>
+                <input type="number" class="form-control" name="audio_threshold" value="{{ rule_config.audio_threshold }}" min="100" max="5000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Warning Cooldown (seconds)</label>
+                <input type="number" class="form-control" name="cooldown_seconds" value="{{ rule_config.cooldown_seconds }}" min="5" max="300">
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Rules</button>
+        </form>
+        <script>
+        document.getElementById('rules-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            fetch('/api/violations/rules/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            }).then(r => r.json()).then(() => showToast('Rules saved!', 'info'));
+        });
+        </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

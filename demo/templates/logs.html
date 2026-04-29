@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Logs — LSOYS AI Demo{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-list"></i> Event Logs</h1>
+    <p>History of all warnings and events.</p>
+</div>
+<div class="card">
+    <div class="card-header-row">
+        <h2 class="card-title"><i class="fas fa-history"></i> Warning History</h2>
+        <button class="btn btn-secondary btn-sm" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+    </div>
+    <table class="log-table">
+        <thead><tr><th>Time</th><th>Person</th><th>Event</th><th>Level</th></tr></thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.time }}</td>
+                <td><strong>{{ log.name }}</strong></td>
+                <td>{{ log.event }}</td>
+                <td>
+                    {% if log.level >= 3 %}<span class="badge badge-red">Level 3</span>
+                    {% elif log.level >= 2 %}<span class="badge badge-orange">Level 2</span>
+                    {% else %}<span class="badge badge-yellow">Level 1</span>{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty-cell">No events recorded yet</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

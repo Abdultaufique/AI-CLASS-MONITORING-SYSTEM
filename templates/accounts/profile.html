@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<div class="card" style="max-width:600px">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-user" style="color:var(--accent-primary);margin-right:8px"></i>My Profile</h3>
+    </div>
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px">
+        <div class="user-avatar" style="width:64px;height:64px;font-size:1.5rem">{{ request.user.first_name|first|default:"A" }}</div>
+        <div>
+            <h3>{{ request.user.get_full_name|default:request.user.username }}</h3>
+            <p style="color:var(--text-muted)">{{ request.user.email }}</p>
+        </div>
+    </div>
+    <div class="form-group"><label class="form-label">Username</label><div class="form-control">{{ request.user.username }}</div></div>
+    <div class="form-group"><label class="form-label">Organization</label><div class="form-control">{{ request.organization.name|default:"N/A" }}</div></div>
+</div>
+{% endblock %}

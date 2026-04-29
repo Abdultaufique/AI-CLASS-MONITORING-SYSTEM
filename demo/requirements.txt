@@ -1,0 +1,8 @@
+# LSOYS AI Demo — Dependencies
+flask>=3.0
+opencv-python-headless>=4.8
+numpy>=1.24
+Pillow>=10.0
+
+# Optional: Better face recognition (requires dlib + CMake + C++ build tools)
+# face-recognition>=1.3

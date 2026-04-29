@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Upload Faces — LSOYS AI Demo{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-user-plus"></i> Upload Face Images</h1>
+    <p>Add people to the recognition database. Upload clear face photos for best results.</p>
+</div>
+
+<div class="grid-2">
+    <!-- Upload Form -->
+    <div class="card">
+        <h2 class="card-title"><i class="fas fa-upload"></i> Add New Person</h2>
+        <form id="upload-form" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Person's Name</label>
+                <input type="text" id="name-input" name="name" placeholder="e.g., Abdul Khan" required>
+            </div>
+            <div class="form-group">
+                <label>Face Photos (1 or more)</label>
+                <div class="file-upload" id="file-drop-zone">
+                    <i class="fas fa-cloud-upload-alt" style="font-size:2rem;margin-bottom:8px"></i>
+                    <p>Click or drag images here</p>
+                    <input type="file" id="file-input" name="images" accept="image/*" multiple>
+                </div>
+                <div id="preview-container" class="preview-grid"></div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full" id="upload-btn">
+                <i class="fas fa-plus-circle"></i> Add to Database
+            </button>
+        </form>
+        <div id="upload-status" style="margin-top:16px"></div>
+    </div>
+
+    <!-- Registered People -->
+    <div class="card">
+        <h2 class="card-title"><i class="fas fa-users"></i> Registered People</h2>
+        {% if people %}
+        <div class="people-list">
+            {% for name, info in people.items() %}
+            <div class="person-item">
+                <div class="person-avatar">{{ name[0] }}</div>
+                <div class="person-info">
+                    <strong>{{ name }}</strong>
+                    <span class="badge">{{ info.encodings }} encoding(s)</span>
+                    <span class="badge badge-blue">{{ info.images }} image(s)</span>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="deletePerson('{{ name }}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-user-slash" style="font-size:3rem;opacity:0.3"></i>
+            <h3>No People Registered</h3>
+            <p>Upload face images to get started</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fileInput = document.getElementById('file-input');
+const preview = document.getElementById('preview-container');
+const dropZone = document.getElementById('file-drop-zone');
+
+fileInput.addEventListener('change', showPreviews);
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    fileInput.files = e.dataTransfer.files;
+    showPreviews();
+});
+
+function showPreviews() {
+    preview.innerHTML = '';
+    for (const file of fileInput.files) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.className = 'preview-img';
+            preview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('upload-btn');
+    const status = document.getElementById('upload-status');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+    const formData = new FormData(e.target);
+    try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (err) {
+        showToast('Upload failed: ' + err.message, 'error');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plus-circle"></i> Add to Database';
+});
+
+async function deletePerson(name) {
+    if (!confirm('Remove ' + name + ' from the database?')) return;
+    const res = await fetch('/delete/' + encodeURIComponent(name), { method: 'POST' });
+    const data = await res.json();
+    showToast(data.message, 'success');
+    setTimeout(() => location.reload(), 500);
+}
+</script>
+{% endblock %}

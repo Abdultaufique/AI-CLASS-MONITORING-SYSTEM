@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LSOYS AI Demo{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="brand-icon">🛡️</span>
+            <span class="brand-text">LSOYS AI Demo</span>
+        </div>
+        <div class="nav-links">
+            <a href="/upload" class="nav-link {% if request.path == '/upload' %}active{% endif %}">
+                <i class="fas fa-user-plus"></i> Upload Faces
+            </a>
+            <a href="/live" class="nav-link {% if request.path == '/live' %}active{% endif %}">
+                <i class="fas fa-video"></i> Live Camera
+            </a>
+            <a href="/logs" class="nav-link {% if request.path == '/logs' %}active{% endif %}">
+                <i class="fas fa-list"></i> Logs
+            </a>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script>
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()">&times;</button>`;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 6000);
+    }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

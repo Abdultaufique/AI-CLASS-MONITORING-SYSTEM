@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Students{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:24px; border: 1px solid var(--border-color); background: var(--card-bg-glass); backdrop-filter: blur(10px);">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; padding: 20px;">
+        <div>
+            <h3 class="card-title" style="margin: 0; font-size: 1.25rem; font-weight: 700;">
+                <i class="fas fa-user-graduate" style="color:var(--accent-primary);margin-right:10px"></i>Student Management
+            </h3>
+            <p style="margin: 5px 0 0; color: var(--text-muted); font-size: 0.85rem;">Manage enrollments and face data for classroom monitoring.</p>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('add-student-modal').classList.add('active')" style="box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);">
+            <i class="fas fa-plus"></i> Add New Student
+        </button>
+    </div>
+    
+    <div class="student-grid" style="padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+        {% for s in students %}
+        <div class="student-card" id="student-{{ s.id }}" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; text-align: center; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 10px; right: 10px;">
+                <button class="btn btn-icon btn-danger btn-sm" onclick="deleteStudent('{{ s.id }}', '{{ s.full_name }}')" title="Remove Student">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            
+            <div class="student-avatar" style="width: 90px; height: 90px; margin: 0 auto 15px; border-radius: 50%; overflow: hidden; border: 3px solid var(--accent-primary); box-shadow: 0 0 20px rgba(99, 102, 241, 0.2); background: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white;">
+                {% if s.face_image %}
+                <img src="{{ s.face_image.url }}" alt="{{ s.full_name }}" style="width: 100%; height: 100%; object-fit: cover;">
+                {% else %}
+                {{ s.user.first_name|first }}{{ s.user.last_name|first }}
+                {% endif %}
+            </div>
+            
+            <div class="student-name" style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">{{ s.full_name }}</div>
+            <div class="student-id" style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 12px;">ID: {{ s.student_id|default:"N/A" }}</div>
+            
+            <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-bottom:15px">
+                {% if s.face_encoding %}
+                <span class="badge badge-success" style="padding: 4px 10px; border-radius: 20px;"><i class="fas fa-check-circle"></i> Enrolled</span>
+                {% else %}
+                <span class="badge badge-warning" style="padding: 4px 10px; border-radius: 20px;"><i class="fas fa-exclamation-triangle"></i> No Face Data</span>
+                {% endif %}
+                <span class="badge badge-info" style="padding: 4px 10px; border-radius: 20px;"><i class="fas fa-bell"></i> {{ s.today_warnings_count }} Warnings</span>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="openUploadModal('{{ s.id }}', '{{ s.full_name }}')">
+                    <i class="fas fa-camera"></i> Update Face
+                </button>
+                <a href="{% url 'dashboard:attendance' %}?user_id={{ s.user.id }}" class="btn btn-secondary btn-sm" style="flex: 1;">
+                    <i class="fas fa-history"></i> Logs
+                </a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="grid-column: 1/-1; padding: 60px; text-align: center;">
+            <div class="icon" style="font-size: 4rem; color: var(--text-muted); opacity: 0.2; margin-bottom: 20px;"><i class="fas fa-users"></i></div>
+            <h3 style="font-weight: 700;">No Students Found</h3>
+            <p style="color: var(--text-muted);">Start by adding students to your organization for classroom monitoring.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Add Student Modal -->
+<div class="modal-overlay" id="add-student-modal">
+    <div class="modal" style="max-width: 600px; width: 95%;">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+            <h3 class="modal-title"><i class="fas fa-user-plus" style="color: var(--accent-primary); margin-right: 10px;"></i>Enroll New Student</h3>
+            <button class="modal-close" onclick="document.getElementById('add-student-modal').classList.remove('active')">&times;</button>
+        </div>
+        <form id="add-student-form" enctype="multipart/form-data" style="padding-top: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <input type="text" class="form-control" name="first_name" placeholder="John" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" class="form-control" name="last_name" placeholder="Doe" required>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" name="username" placeholder="johndoe123" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Student ID / Roll No</label>
+                    <input type="text" class="form-control" name="student_id" placeholder="CS2024001" required>
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label class="form-label">Face Image (Passport size / Clear face)</label>
+                <div class="file-upload-wrapper" style="border: 2px dashed var(--border-color); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: 0.3s;" id="add-student-dropzone" onclick="document.getElementById('add-student-image').click()">
+                    <i class="fas fa-camera" style="font-size: 2rem; color: var(--text-muted); margin-bottom: 10px; display: block;"></i>
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Click to upload student face image</p>
+                    <p style="margin: 5px 0 0; color: var(--accent-primary); font-size: 0.8rem; font-weight: 600;" id="add-student-filename">No file selected</p>
+                    <input type="file" id="add-student-image" name="face_image" accept="image/*" style="display: none;" onchange="updateFileName(this)">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" name="email" placeholder="john@example.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Default Password</label>
+                    <input type="password" class="form-control" name="password" value="Student@123" required>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width:100%; padding: 12px; font-weight: 700; font-size: 1rem;" id="add-student-btn">
+                <i class="fas fa-save"></i> Complete Enrollment
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- (Previous Update Faces Modal and Scripts remains with minor improvements) -->
+<div class="modal-overlay" id="upload-faces-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-camera" style="margin-right:8px"></i>Batch Face Training</h3>
+            <button class="modal-close" onclick="document.getElementById('upload-faces-modal').classList.remove('active')">&times;</button>
+        </div>
+        <p style="color:var(--text-muted);margin-bottom:16px">
+            Adding multi-angle face data for: <strong id="upload-person-name"></strong>
+        </p>
+        <form id="upload-faces-form" enctype="multipart/form-data">
+            <input type="hidden" id="upload-profile-id" name="profile_id">
+            <div class="form-group">
+                <label class="form-label">Upload 3-5 images from different angles</label>
+                <div style="border:2px dashed var(--border-color);border-radius:8px;padding:30px;text-align:center;cursor:pointer;transition:0.2s" 
+                     id="face-drop-zone" onclick="document.getElementById('face-files').click()">
+                    <i class="fas fa-images" style="font-size:2rem;opacity:0.4;margin-bottom:8px;display:block"></i>
+                    <p style="color:var(--text-muted)">Drop multiple images here</p>
+                    <input type="file" id="face-files" name="face_images" accept="image/*" multiple style="display:none" onchange="previewFaces(this)">
+                </div>
+                <div id="face-previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"></div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%" id="upload-faces-btn">
+                <i class="fas fa-microchip"></i> Train Face Model
+            </button>
+        </form>
+        <div id="upload-result" style="margin-top:12px"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function updateFileName(input) {
+    const filename = input.files.length > 0 ? input.files[0].name : "No file selected";
+    document.getElementById('add-student-filename').textContent = filename;
+    document.getElementById('add-student-dropzone').style.borderColor = "var(--accent-primary)";
+    document.getElementById('add-student-dropzone').style.background = "rgba(99, 102, 241, 0.05)";
+}
+
+// Add Student
+document.getElementById('add-student-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('add-student-btn');
+    const data = new FormData(form);
+    data.append('role', 'student');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enrolling...';
+
+    fetch('/accounts/api/profiles/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+        body: data,
+    })
+    .then(async r => {
+        const d = await r.json();
+        if (r.ok) {
+            showToast('Student enrolled and face data trained!', 'info');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            // Handle error response properly
+            const errorMsg = d.detail || d.message || Object.values(d).flat().join(', ') || 'Enrollment failed';
+            showToast('Error: ' + errorMsg, 'critical');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Complete Enrollment';
+        }
+    })
+    .catch(err => {
+        showToast('System Error: ' + err.message, 'critical');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Complete Enrollment';
+    });
+});
+
+async function deleteStudent(profileId, name) {
+    if (!confirm(`Are you sure you want to remove student "${name}"? This will delete all attendance and violation records.`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/accounts/api/profiles/${profileId}/`, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        
+        if (res.ok) {
+            showToast('Student removed successfully', 'info');
+            const card = document.getElementById(`student-${profileId}`);
+            card.style.transform = "scale(0.8)";
+            card.style.opacity = "0";
+            setTimeout(() => card.remove(), 300);
+        } else {
+            showToast('Failed to remove student', 'critical');
+        }
+    } catch (err) {
+        showToast('Error: ' + err.message, 'critical');
+    }
+}
+
+// (Remaining Face Training scripts same as before)
+function openUploadModal(profileId, name) {
+    document.getElementById('upload-profile-id').value = profileId;
+    document.getElementById('upload-person-name').textContent = name;
+    document.getElementById('face-previews').innerHTML = '';
+    document.getElementById('upload-result').innerHTML = '';
+    document.getElementById('upload-faces-modal').classList.add('active');
+}
+
+function previewFaces(input) {
+    const container = document.getElementById('face-previews');
+    container.innerHTML = '';
+    for (const file of input.files) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.style.cssText = 'width:70px;height:70px;object-fit:cover;border-radius:8px;border:2px solid var(--border-color)';
+            container.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+document.getElementById('upload-faces-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const profileId = document.getElementById('upload-profile-id').value;
+    const files = document.getElementById('face-files').files;
+    const btn = document.getElementById('upload-faces-btn');
+    const result = document.getElementById('upload-result');
+
+    if (!files.length) {
+        showToast('Please select face images', 'warning');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Training AI...';
+
+    const formData = new FormData();
+    for (const f of files) formData.append('face_images', f);
+
+    try {
+        const res = await fetch(`/accounts/api/profiles/${profileId}/upload-multiple-faces/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            result.innerHTML = `<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;color:#34d399">
+                <i class="fas fa-check-circle"></i> AI Training Complete! Enrolled in ${data.total_encodings} datasets.
+            </div>`;
+            showToast('Face model updated', 'info');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            result.innerHTML = `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:12px;color:#f87171">
+                <i class="fas fa-exclamation-circle"></i> ${data.error}
+            </div>`;
+        }
+    } catch (err) {
+        showToast('Training failed: ' + err.message, 'critical');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-microchip"></i> Train Face Model';
+});
+</script>
+{% endblock %}

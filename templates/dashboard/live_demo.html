@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Live Demo{% endblock %}
+{% block content %}
+<div class="stats-grid" style="margin-bottom:24px">
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
+        <div class="stat-value">{{ enrolled_count }}</div>
+        <div class="stat-label">Faces Enrolled</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+        <div class="stat-value">{{ total_students }}</div>
+        <div class="stat-label">Total Students</div>
+    </div>
+</div>
+
+<div class="content-grid" style="display: grid; grid-template-columns: 1fr 350px; gap: 24px;">
+    <!-- Video Feed -->
+    <div class="card"
+        style="border: 1px solid var(--border-color); background: var(--card-bg-glass); backdrop-filter: blur(12px); overflow: hidden;">
+        <div class="card-header"
+            style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; padding: 15px 20px;">
+            <h3 class="card-title" style="margin: 0; font-size: 1.1rem; letter-spacing: 0.5px;">
+                <i class="fas fa-microchip" style="color:var(--accent-primary);margin-right:10px"></i>AI MONITORING
+                CONSOLE
+            </h3>
+            <div style="display:flex;gap:10px">
+                <button class="btn btn-primary btn-sm" id="start-btn" onclick="startDemo()" style="padding: 6px 16px;">
+                    <i class="fas fa-play"></i> START SYSTEM
+                </button>
+                <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopDemo()"
+                    style="display:none; padding: 6px 16px;">
+                    <i class="fas fa-power-off"></i> SHUTDOWN
+                </button>
+            </div>
+        </div>
+        <div class="camera-feed" id="camera-feed"
+            style="min-height:480px; position:relative; background: #000; display: flex; align-items: center; justify-content: center;">
+            <div class="empty-state" id="no-feed" style="text-align: center; color: var(--text-muted);">
+                <div class="icon" style="font-size: 4rem; opacity: 0.1; margin-bottom: 20px;"><i
+                        class="fas fa-video-slash"></i></div>
+                <h3 style="font-weight: 300;">System Standby</h3>
+                <p>Initialize the AI engine to begin real-time surveillance.</p>
+            </div>
+            <img id="demo-feed" style="display:none; width:100%; height: auto; object-fit: contain;"
+                alt="AI Monitoring Stream">
+
+            <!-- HUD Overlay -->
+            <div id="feed-overlay"
+                style="display:none; position:absolute; top:20px; left:20px; right:20px; bottom: 20px; z-index:2; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;">
+                <div style="position: absolute; top: 15px; left: 15px; display: flex; gap: 10px;">
+                    <span
+                        style="background:rgba(239,68,68,0.9); color:white; padding:5px 12px; border-radius:4px; font-size:0.7rem; font-weight:800; letter-spacing: 1px;">
+                        <span
+                            style="display:inline-block; width:8px; height:8px; border-radius:50%; background:white; margin-right:6px; animation:blink 1.2s infinite"></span>
+                        RECORDING
+                    </span>
+                    <span
+                        style="background:rgba(0,0,0,0.6); color:rgba(255,255,255,0.8); padding:5px 12px; border-radius:4px; font-size:0.7rem; border: 1px solid rgba(255,255,255,0.2);">
+                        CAM_01 // SECURE_LINE
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Insights & Status -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="card"
+            style="border: 1px solid var(--border-color); background: var(--card-bg-glass); padding: 20px;">
+            <h4
+                style="margin: 0 0 15px; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">
+                System Status</h4>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.85rem;">Face Recognition</span>
+                    <span id="status-face" class="badge"
+                        style="background: rgba(255,255,255,0.05); color: var(--text-muted);">STANDBY</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.85rem;">Audio Analysis</span>
+                    <span id="status-audio" class="badge"
+                        style="background: rgba(255,255,255,0.05); color: var(--text-muted);">INACTIVE</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.85rem;">Neural Encodings</span>
+                    <span style="font-weight: 700; color: var(--accent-primary);">{{ enrolled_count }} Loaded</span>
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
+
+            <div id="talking-indicator"
+                style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; text-align: center; opacity: 0.5;">
+                <i class="fas fa-microphone" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
+                <div style="font-size: 0.75rem; font-weight: 700;">AMBIENT NOISE MONITOR</div>
+                <div id="audio-level-text" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">NO
+                    SIGNAL</div>
+            </div>
+        </div>
+
+        <div class="card"
+            style="border: 1px solid var(--border-color); background: var(--card-bg-glass); padding: 20px; flex: 1; display: flex; flex-direction: column;">
+            <h4
+                style="margin: 0 0 15px; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">
+                Active Directory</h4>
+            <div style="flex: 1; overflow-y: auto; max-height: 300px;">
+                {% for s in students %}
+                <div
+                    style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px;border:1px solid rgba(255,255,255,0.05)">
+                    <div class="user-avatar" style="width:32px;height:32px;font-size:0.75rem;flex-shrink:0">
+                        {% if s.face_image %}<img src="{{ s.face_image.url }}"
+                            style="width:100%;height:100%;object-fit:cover;border-radius:50%">{% else %}{{
+                        s.user.first_name|first }}{% endif %}
+                    </div>
+                    <div style="flex:1;min-width:0">
+                        <div
+                            style="font-weight:600;font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            {{ s.full_name }}</div>
+                        <div style="font-size:0.65rem;color:var(--text-muted)">{{ s.student_id }}</div>
+                    </div>
+                    {% if s.face_encoding %}<i class="fas fa-check-circle"
+                        style="color: var(--success); font-size: 0.8rem;"></i>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes blink {
+
+        0%,
+        100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.3
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let isDemoRunning = false;
+
+    async function startDemo() {
+        const btn = document.getElementById('start-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+
+        try {
+            const res = await fetch('{% url "dashboard:live_demo_start" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: '0', camera_id: 'demo_cam' })
+            });
+            const data = await res.json();
+
+            if (data.error) {
+                showToast(data.error, 'critical');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Live Demo';
+                return;
+            }
+
+            // Show feed
+            const feed = document.getElementById('demo-feed');
+            feed.src = '{% url "dashboard:live_demo_feed" %}?camera_id=demo_cam&t=' + Date.now();
+            feed.style.display = 'block';
+            document.getElementById('no-feed').style.display = 'none';
+            document.getElementById('feed-overlay').style.display = 'flex';
+            document.getElementById('start-btn').style.display = 'none';
+            document.getElementById('stop-btn').style.display = 'inline-flex';
+            isDemoRunning = true;
+            showToast('Live demo started! Faces will be detected and recognized.', 'info');
+        } catch (err) {
+            showToast('Failed to start: ' + err.message, 'critical');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play"></i> Start Live Demo';
+        }
+    }
+
+    async function stopDemo() {
+        await fetch('{% url "dashboard:live_demo_stop" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ camera_id: 'demo_cam' })
+        });
+
+        document.getElementById('demo-feed').style.display = 'none';
+        document.getElementById('no-feed').style.display = 'block';
+        document.getElementById('feed-overlay').style.display = 'none';
+        document.getElementById('start-btn').style.display = 'inline-flex';
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('start-btn').innerHTML = '<i class="fas fa-play"></i> Start Live Demo';
+        document.getElementById('stop-btn').style.display = 'none';
+        isDemoRunning = false;
+        showToast('Demo stopped', 'info');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Attendance{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:24px">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-clipboard-check" style="color:var(--success);margin-right:8px"></i>Attendance Records</h3>
+        <div style="display:flex;gap:12px;align-items:center">
+            <input type="date" class="form-control" style="width:auto" id="date-filter"
+                   value="{{ filter_date }}" onchange="window.location.href='?date='+this.value">
+            <a href="/api/monitoring/attendance/export-csv/?date={{ filter_date }}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-download"></i> Export CSV
+            </a>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Student ID</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Camera</th>
+                    <th>Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in attendance_records %}
+                <tr>
+                    <td><strong>{{ a.user.get_full_name }}</strong></td>
+                    <td>{{ a.user.profile.student_id|default:"—" }}</td>
+                    <td>{{ a.date }}</td>
+                    <td>{{ a.timestamp|time:"H:i:s" }}</td>
+                    <td>{{ a.camera.name|default:"—" }}</td>
+                    <td><span class="badge badge-success">{{ a.face_confidence|floatformat:0 }}%</span></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="empty-state" style="padding:40px">
+                    <div class="icon"><i class="fas fa-clipboard"></i></div>
+                    <h3>No Records</h3>
+                    <p>No attendance records found for this date.</p>
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

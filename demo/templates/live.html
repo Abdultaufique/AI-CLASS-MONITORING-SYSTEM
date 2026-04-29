@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}Live Camera — LSOYS AI Demo{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-video"></i> Live Camera Monitor</h1>
+    <p>Real-time face detection, recognition, and talking alerts.</p>
+</div>
+
+<div class="live-layout">
+    <!-- Video Feed -->
+    <div class="card video-card">
+        <div class="video-container" id="video-container">
+            <div class="video-placeholder" id="video-placeholder">
+                <i class="fas fa-video-slash"></i>
+                <h3>Camera Off</h3>
+                <p>Click "Start Monitoring" to begin</p>
+            </div>
+            <img id="video-feed" src="" style="display:none" alt="Live Feed">
+            <div class="video-overlay" id="video-overlay" style="display:none">
+                <span class="live-badge"><span class="live-dot"></span> LIVE</span>
+                <span class="face-count" id="face-count">0 faces</span>
+            </div>
+        </div>
+        <div class="video-controls">
+            <button class="btn btn-primary" id="start-btn" onclick="startMonitoring()">
+                <i class="fas fa-play"></i> Start Monitoring
+            </button>
+            <button class="btn btn-danger" id="stop-btn" onclick="stopMonitoring()" style="display:none">
+                <i class="fas fa-stop"></i> Stop
+            </button>
+            <button class="btn btn-secondary" onclick="resetWarnings()">
+                <i class="fas fa-redo"></i> Reset Warnings
+            </button>
+            <div class="audio-toggle">
+                <label class="switch">
+                    <input type="checkbox" id="audio-toggle" onchange="toggleAudio(this.checked)">
+                    <span class="slider"></span>
+                </label>
+                <span>Talking Detection</span>
+                <span class="audio-level" id="audio-level-display">🔇</span>
+            </div>
+        </div>
+        <div class="info-bar">
+            <span><i class="fas fa-users"></i> Known: <strong id="known-count">{{ known_count }}</strong></span>
+            <span><i class="fas fa-eye"></i> Detected: <strong id="detected-count">0</strong></span>
+            <span id="audio-status"><i class="fas fa-microphone-slash"></i> Audio: Off</span>
+        </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="side-panel">
+        <!-- Detected Faces -->
+        <div class="card">
+            <h3 class="card-title"><i class="fas fa-user-check"></i> Detected Faces</h3>
+            <div id="detected-list" class="detected-list">
+                <div class="empty-state small">No faces detected</div>
+            </div>
+        </div>
+
+        <!-- Live Alerts -->
+        <div class="card">
+            <h3 class="card-title"><i class="fas fa-bell"></i> Live Alerts</h3>
+            <div id="alert-list" class="alert-list">
+                <div class="empty-state small">No alerts yet</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let audioContext = null;
+let audioStream = null;
+let analyser = null;
+let audioInterval = null;
+let statusInterval = null;
+let isMonitoring = false;
+
+async function startMonitoring() {
+    try {
+        const res = await fetch('/start_monitoring', { method: 'POST' });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, 'error'); return; }
+
+        isMonitoring = true;
+        document.getElementById('video-feed').src = '/video_feed?' + Date.now();
+        document.getElementById('video-feed').style.display = 'block';
+        document.getElementById('video-placeholder').style.display = 'none';
+        document.getElementById('video-overlay').style.display = 'flex';
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('stop-btn').style.display = 'inline-flex';
+
+        statusInterval = setInterval(updateStatus, 1000);
+        showToast('Monitoring started!', 'success');
+    } catch (err) {
+        showToast('Failed to start: ' + err.message, 'error');
+    }
+}
+
+async function stopMonitoring() {
+    await fetch('/stop_monitoring', { method: 'POST' });
+    isMonitoring = false;
+    document.getElementById('video-feed').style.display = 'none';
+    document.getElementById('video-placeholder').style.display = 'flex';
+    document.getElementById('video-overlay').style.display = 'none';
+    document.getElementById('start-btn').style.display = 'inline-flex';
+    document.getElementById('stop-btn').style.display = 'none';
+    if (statusInterval) clearInterval(statusInterval);
+    toggleAudio(false);
+    document.getElementById('audio-toggle').checked = false;
+    showToast('Monitoring stopped', 'info');
+}
+
+async function updateStatus() {
+    try {
+        const res = await fetch('/status');
+        const data = await res.json();
+
+        // Update face count
+        const faces = data.detected_faces || [];
+        document.getElementById('face-count').textContent = faces.length + ' face(s)';
+        document.getElementById('detected-count').textContent = faces.length;
+        document.getElementById('known-count').textContent = data.known_count;
+
+        // Update detected list
+        const list = document.getElementById('detected-list');
+        if (faces.length === 0) {
+            list.innerHTML = '<div class="empty-state small">No faces detected</div>';
+        } else {
+            list.innerHTML = faces.map(f => {
+                const wCount = data.warnings[f.name] || 0;
+                let statusClass = 'status-ok';
+                let statusText = 'OK';
+                if (wCount >= 3) { statusClass = 'status-expelled'; statusText = 'EXPELLED'; }
+                else if (wCount >= 2) { statusClass = 'status-danger'; statusText = 'Warning ' + wCount; }
+                else if (wCount >= 1) { statusClass = 'status-warning'; statusText = 'Warning ' + wCount; }
+
+                return `<div class="detected-item">
+                    <div class="person-avatar-sm">${f.name[0]}</div>
+                    <div>
+                        <strong>${f.name}</strong>
+                        <small>${f.confidence}% match</small>
+                    </div>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                </div>`;
+            }).join('');
+        }
+
+        // Update alerts from warnings
+        const alertList = document.getElementById('alert-list');
+        const warnEntries = Object.entries(data.warnings).filter(([k, v]) => v > 0);
+        if (warnEntries.length === 0) {
+            alertList.innerHTML = '<div class="empty-state small">No alerts yet</div>';
+        } else {
+            alertList.innerHTML = warnEntries.map(([name, count]) => {
+                const msgs = {1: 'Please maintain silence', 2: 'Final warning!', 3: 'Please leave the room'};
+                const lvl = Math.min(count, 3);
+                const cls = lvl >= 3 ? 'alert-critical' : lvl >= 2 ? 'alert-high' : 'alert-warn';
+                return `<div class="alert-item ${cls}">
+                    <strong>${name}</strong>
+                    <span>Warning ${count}: ${msgs[lvl]}</span>
+                </div>`;
+            }).join('');
+        }
+    } catch (e) {}
+}
+
+async function toggleAudio(enabled) {
+    const statusEl = document.getElementById('audio-status');
+    const levelEl = document.getElementById('audio-level-display');
+
+    if (enabled && isMonitoring) {
+        try {
+            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioContext = new AudioContext();
+            const source = audioContext.createMediaStreamSource(audioStream);
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 512;
+            source.connect(analyser);
+
+            audioInterval = setInterval(() => {
+                const data = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(data);
+                const avg = data.reduce((a, b) => a + b, 0) / data.length;
+
+                // Visual level indicator
+                if (avg > 40) levelEl.textContent = '🔊';
+                else if (avg > 15) levelEl.textContent = '🔉';
+                else levelEl.textContent = '🔈';
+
+                // If loud enough, report talking
+                if (avg > 35) {
+                    fetch('/talking', { method: 'POST' });
+                }
+            }, 500);
+
+            statusEl.innerHTML = '<i class="fas fa-microphone" style="color:#34d399"></i> Audio: ON';
+            showToast('Talking detection enabled', 'success');
+        } catch (err) {
+            showToast('Microphone access denied', 'error');
+            document.getElementById('audio-toggle').checked = false;
+        }
+    } else {
+        if (audioInterval) clearInterval(audioInterval);
+        if (audioStream) audioStream.getTracks().forEach(t => t.stop());
+        if (audioContext) audioContext.close();
+        audioInterval = null;
+        audioStream = null;
+        audioContext = null;
+        statusEl.innerHTML = '<i class="fas fa-microphone-slash"></i> Audio: Off';
+        levelEl.textContent = '🔇';
+    }
+}
+
+async function resetWarnings() {
+    await fetch('/reset_warnings', { method: 'POST' });
+    showToast('All warnings reset', 'info');
+}
+</script>
+{% endblock %}

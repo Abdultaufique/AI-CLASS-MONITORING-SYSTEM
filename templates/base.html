@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LSOYS AI — Classroom & Library Monitoring Platform">
+    <title>{% block title %}Dashboard{% endblock %} — LSOYS AI Monitor</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">🛡️</div>
+            <div>
+                <h1>LSOYS AI</h1>
+                <div class="brand-sub">Monitoring Platform</div>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Main</div>
+                <a href="{% url 'dashboard:index' %}" class="nav-item {% if page_title == 'Dashboard' %}active{% endif %}" id="nav-dashboard">
+                    <span class="nav-icon"><i class="fas fa-chart-pie"></i></span> Dashboard
+                </a>
+                <a href="{% url 'dashboard:cameras' %}" class="nav-item {% if page_title == 'Cameras' %}active{% endif %}" id="nav-cameras">
+                    <span class="nav-icon"><i class="fas fa-video"></i></span> Cameras
+                    <span class="nav-badge" id="active-cameras-badge" style="display:none">0</span>
+                </a>
+                <a href="{% url 'dashboard:live_demo' %}" class="nav-item {% if page_title == 'Live Demo' %}active{% endif %}" id="nav-live-demo">
+                    <span class="nav-icon"><i class="fas fa-play-circle"></i></span> Live Demo
+                </a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Records</div>
+                <a href="{% url 'dashboard:attendance' %}" class="nav-item {% if page_title == 'Attendance' %}active{% endif %}" id="nav-attendance">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span> Attendance
+                </a>
+                <a href="{% url 'dashboard:violations' %}" class="nav-item {% if page_title == 'Violations' %}active{% endif %}" id="nav-violations">
+                    <span class="nav-icon"><i class="fas fa-exclamation-triangle"></i></span> Violations
+                </a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Management</div>
+                <a href="{% url 'dashboard:students' %}" class="nav-item {% if page_title == 'Students' %}active{% endif %}" id="nav-students">
+                    <span class="nav-icon"><i class="fas fa-user-graduate"></i></span> Students
+                </a>
+                <a href="{% url 'dashboard:settings' %}" class="nav-item {% if page_title == 'Settings' %}active{% endif %}" id="nav-settings">
+                    <span class="nav-icon"><i class="fas fa-cog"></i></span> Settings
+                </a>
+            </div>
+            <div class="nav-section" style="margin-top:auto; padding-top:16px; border-top:1px solid var(--border-color);">
+                <a href="{% url 'accounts:logout' %}" class="nav-item" id="nav-logout">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> Logout
+                </a>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="header-btn" id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h2 class="page-title">{% block page_title %}{{ page_title|default:"Dashboard" }}{% endblock %}</h2>
+        </div>
+        <div class="header-right">
+            <button class="header-btn" id="notifications-btn" onclick="toggleNotifPanel()">
+                <i class="fas fa-bell"></i>
+                <span class="badge-dot" id="notif-dot" style="display:none"></span>
+            </button>
+            <div class="user-menu">
+                <div class="user-avatar">{{ request.user.first_name|first|default:"A" }}</div>
+                <div class="user-info">
+                    <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                    <span class="user-role">{% if request.user.is_superuser %}Super Admin{% else %}{{ request.organization.name|default:"Admin" }}{% endif %}</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
+<!-- Toast Notification Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Notification Panel -->
+<div class="modal-overlay" id="notif-panel">
+    <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-bell"></i> Notifications</h3>
+            <button class="modal-close" onclick="toggleNotifPanel()">&times;</button>
+        </div>
+        <div class="notification-list" id="notif-list">
+            <div class="empty-state" style="padding:30px">
+                <div class="icon"><i class="fas fa-check-circle"></i></div>
+                <h3>All caught up!</h3>
+                <p>No new notifications.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── Global Utilities ──
+const csrfToken = '{{ csrf_token }}';
+
+function showToast(message, severity = 'info', duration = 5000) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${severity}`;
+    const icons = { info: 'ℹ️', warning: '⚠️', high: '🔶', critical: '🚫' };
+    toast.innerHTML = `
+        <span style="font-size:1.2rem">${icons[severity] || '📢'}</span>
+        <div style="flex:1">
+            <div style="font-weight:600;font-size:0.85rem">${message}</div>
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">Just now</div>
+        </div>
+        <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem">&times;</button>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), duration);
+}
+
+function toggleNotifPanel() {
+    document.getElementById('notif-panel').classList.toggle('active');
+}
+
+// ── Auto-refresh stats ──
+function refreshStats() {
+    fetch('/dashboard/api/stats/')
+        .then(r => r.json())
+        .then(data => {
+            const el = (id) => document.getElementById(id);
+            if (el('stat-attendance')) el('stat-attendance').textContent = data.today_attendance;
+            if (el('stat-students')) el('stat-students').textContent = data.total_students;
+            if (el('stat-warnings')) el('stat-warnings').textContent = data.today_warnings;
+            if (el('stat-violations')) el('stat-violations').textContent = data.today_violations;
+            if (el('stat-cameras')) el('stat-cameras').textContent = data.active_cameras;
+            if (data.unread_notifications > 0) {
+                document.getElementById('notif-dot').style.display = 'block';
+            }
+        })
+        .catch(() => {});
+}
+setInterval(refreshStats, 10000);
+
+// ── WebSocket for Notifications ──
+let notifSocket = null;
+function connectNotifWS() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    notifSocket = new WebSocket(`${protocol}//${window.location.host}/ws/notifications/`);
+    notifSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        showToast(data.message || data.title, data.severity || 'info');
+        document.getElementById('notif-dot').style.display = 'block';
+    };
+    notifSocket.onclose = function() {
+        setTimeout(connectNotifWS, 5000);
+    };
+}
+try { connectNotifWS(); } catch(e) {}
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

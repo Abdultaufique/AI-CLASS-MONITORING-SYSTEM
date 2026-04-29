@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-clipboard-check"></i></div>
+        <div class="stat-value" id="stat-attendance">{{ today_attendance }}</div>
+        <div class="stat-label">Attendance Today</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple"><i class="fas fa-user-graduate"></i></div>
+        <div class="stat-value" id="stat-students">{{ total_students }}</div>
+        <div class="stat-label">Total Students</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon amber"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="stat-value" id="stat-warnings">{{ today_warnings }}</div>
+        <div class="stat-label">Warnings Today</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red"><i class="fas fa-ban"></i></div>
+        <div class="stat-value" id="stat-violations">{{ today_violations }}</div>
+        <div class="stat-label">Violations Today</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fas fa-video"></i></div>
+        <div class="stat-value" id="stat-cameras">{{ active_cameras }}</div>
+        <div class="stat-label">Active Cameras</div>
+    </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="content-grid">
+    <!-- Live Feed -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-video" style="color:var(--accent-primary);margin-right:8px"></i>Live Camera Feed</h3>
+            <select class="form-control" style="width:auto" id="camera-select" onchange="switchCamera(this.value)">
+                <option value="">Select Camera</option>
+                {% for cam in cameras %}
+                <option value="{{ cam.id }}">{{ cam.name }} — {{ cam.location }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="camera-feed" id="camera-feed">
+            <div class="empty-state" id="no-feed">
+                <div class="icon"><i class="fas fa-video-slash"></i></div>
+                <h3>No Camera Selected</h3>
+                <p>Select a camera to view the live feed</p>
+            </div>
+            <img id="feed-image" style="display:none" alt="Live Feed">
+            <div class="feed-overlay" id="feed-overlay" style="display:none">
+                <div class="feed-status">
+                    <span class="dot live"></span> LIVE
+                </div>
+                <span class="badge badge-info" id="face-count">0 faces detected</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-bell" style="color:var(--warning);margin-right:8px"></i>Recent Alerts</h3>
+        </div>
+        <div class="notification-list">
+            {% for n in recent_notifications %}
+            <div class="notification-item">
+                <div class="notification-dot {{ n.severity }}"></div>
+                <div class="notification-text">
+                    <div class="title">{{ n.title }}</div>
+                    <div class="time">{{ n.created_at|timesince }} ago</div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state" style="padding:30px">
+                <div class="icon"><i class="fas fa-check-circle"></i></div>
+                <h3>All Clear</h3>
+                <p>No recent alerts</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Recent Attendance -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-clipboard-check" style="color:var(--success);margin-right:8px"></i>Recent Attendance</h3>
+        <a href="{% url 'dashboard:attendance' %}" class="btn btn-secondary btn-sm">View All</a>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr><th>Student</th><th>Time</th><th>Camera</th><th>Confidence</th></tr>
+            </thead>
+            <tbody>
+                {% for a in recent_attendance %}
+                <tr>
+                    <td><strong>{{ a.user.get_full_name }}</strong></td>
+                    <td>{{ a.timestamp|time:"H:i:s" }}</td>
+                    <td>{{ a.camera.name|default:"—" }}</td>
+                    <td><span class="badge badge-success">{{ a.face_confidence|floatformat:0 }}%</span></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:30px">No attendance records today</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function switchCamera(cameraId) {
+    const img = document.getElementById('feed-image');
+    const noFeed = document.getElementById('no-feed');
+    const overlay = document.getElementById('feed-overlay');
+
+    if (!cameraId) {
+        img.style.display = 'none';
+        noFeed.style.display = 'block';
+        overlay.style.display = 'none';
+        return;
+    }
+
+    img.src = `/api/monitoring/cameras/${cameraId}/feed/`;
+    img.style.display = 'block';
+    noFeed.style.display = 'none';
+    overlay.style.display = 'flex';
+}
+</script>
+{% endblock %}

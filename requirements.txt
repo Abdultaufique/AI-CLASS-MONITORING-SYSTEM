@@ -1,0 +1,29 @@
+# LSOYS AI Monitoring Platform — Dependencies
+# Core
+django>=4.2,<5.0
+djangorestframework>=3.14
+django-cors-headers>=4.3
+channels>=4.0
+daphne>=4.0
+python-dotenv>=1.0
+
+# AI / Computer Vision
+opencv-python-headless>=4.8
+numpy>=1.24
+Pillow>=10.0
+
+# Optional: Enhanced face recognition (requires dlib + CMake + C++ build tools)
+# face-recognition>=1.3
+
+# Optional: YOLO person detection
+# ultralytics>=8.0
+
+# Optional: Local audio capture
+# pyaudio>=0.2.13
+
+# Production
+gunicorn>=21.0
+whitenoise>=6.5
+
+# Database (production)
+# psycopg2-binary>=2.9
