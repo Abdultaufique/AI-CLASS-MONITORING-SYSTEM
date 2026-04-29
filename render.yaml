@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: lsoys-ai-classroom
+    env: python
+    buildCommand: "bash render-build.sh"
+    startCommand: "daphne -b 0.0.0.0 -p $PORT config.asgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.render
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
