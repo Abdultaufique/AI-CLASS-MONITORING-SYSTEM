@@ -74,7 +74,7 @@ class CameraService:
         if not self.capture or not self.capture.isOpened():
             if str(self.source) in ['0', '1', '2'] or 'webcam' in str(self.source).lower():
                 logger.warning("Physical webcam failed. Falling back to Cloud Demo video stream.")
-                self.capture = cv2.VideoCapture('http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4')
+                self.capture = cv2.VideoCapture('sample_data/demo.mp4')
 
         if not self.capture or not self.capture.isOpened():
             logger.error(f"Cannot open camera source: {self.source}")
