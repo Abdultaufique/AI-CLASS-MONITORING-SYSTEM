@@ -2,6 +2,8 @@
 # exit on error
 set -o errexit
 
+export DJANGO_SETTINGS_MODULE=config.settings.render
+
 pip install -r requirements.txt
 
 # Convert static files
@@ -11,9 +13,9 @@ python manage.py collectstatic --no-input
 python manage.py migrate
 
 # Generate sample data so the app looks populated even after sleep/restart
-python sample_data/create_sample_data.py
+python sample_data/create_sample_data.py || true
 
 # Download a sample video for the Live Demo camera fallback
 if [ ! -f "sample_data/demo.mp4" ]; then
-    curl -L -o sample_data/demo.mp4 "https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female.mp4"
+    curl -L -o sample_data/demo.mp4 "https://github.com/intel-iot-devkit/sample-videos/raw/master/head-pose-face-detection-female.mp4" || true
 fi
