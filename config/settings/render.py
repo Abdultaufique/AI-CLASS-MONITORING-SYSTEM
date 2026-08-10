@@ -35,8 +35,8 @@ DATABASES = {
 # Add WhiteNoise to the middleware list for serving static files efficiently
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
-# WhiteNoise settings
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# WhiteNoise settings — use non-manifest version to avoid strict missing-file errors
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Security Settings for production
 SECURE_BROWSER_XSS_FILTER = True
