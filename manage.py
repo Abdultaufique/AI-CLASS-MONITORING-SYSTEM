@@ -6,7 +6,13 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
+    # Auto-detect Render environment (RENDER env var is always set on Render.com)
+    # This overrides any malformed DJANGO_SETTINGS_MODULE from the dashboard.
+    if os.environ.get('RENDER'):
+        os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.render'
+    else:
+        _s = os.environ.get('DJANGO_SETTINGS_MODULE', '').strip()
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', _s or 'config.settings.development')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
