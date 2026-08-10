@@ -6,7 +6,15 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
+# Strip any accidental whitespace/newlines from the env var (Render dashboard bug)
+_settings = os.environ.get('DJANGO_SETTINGS_MODULE', '').strip()
+# Auto-detect Render environment (RENDER is always set on Render)
+if os.environ.get('RENDER') or _settings == 'config.settings.render':
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.render'
+elif _settings:
+    os.environ['DJANGO_SETTINGS_MODULE'] = _settings
+else:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
 
 django_asgi_app = get_asgi_application()
 
