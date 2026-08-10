@@ -1,6 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Live Demo{% endblock %}
+
+{% block extra_head %}
+<style>
+.feed-container { position:relative; background:#000; min-height:480px; border-radius:0 0 12px 12px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+.face-overlay-canvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+.hud-tag { background:rgba(239,68,68,0.9); color:#fff; padding:5px 12px; border-radius:4px; font-size:0.68rem; font-weight:800; letter-spacing:1px; display:flex; align-items:center; gap:6px; }
+.hud-cam { background:rgba(0,0,0,0.6); color:rgba(255,255,255,0.8); padding:5px 12px; border-radius:4px; font-size:0.68rem; border:1px solid rgba(255,255,255,0.2); }
+.face-pill { display:inline-flex; align-items:center; gap:6px; background:rgba(0,220,100,0.15); border:1px solid rgba(0,220,100,0.3); color:#00dc64; padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:600; }
+.face-pill.unknown { background:rgba(255,180,0,0.12); border-color:rgba(255,180,0,0.3); color:#ffb400; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- Enrollment stats -->
 <div class="stats-grid" style="margin-bottom:24px">
     <div class="stat-card">
         <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
@@ -12,195 +26,346 @@
         <div class="stat-value">{{ total_students }}</div>
         <div class="stat-label">Total Students</div>
     </div>
+    {% if enrolled_count < total_students %}
+    <div class="stat-card" style="border-color:rgba(255,180,0,0.4)">
+        <div class="stat-icon amber"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="stat-value" style="color:var(--warning)">{{ total_students|add:"-0" }}</div>
+        <div class="stat-label" style="color:var(--warning)">⚠ {{ total_students }} - {{ enrolled_count }} unenrolled</div>
+    </div>
+    {% endif %}
 </div>
 
-<div class="content-grid" style="display: grid; grid-template-columns: 1fr 350px; gap: 24px;">
-    <!-- Video Feed -->
-    <div class="card"
-        style="border: 1px solid var(--border-color); background: var(--card-bg-glass); backdrop-filter: blur(12px); overflow: hidden;">
-        <div class="card-header"
-            style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; padding: 15px 20px;">
-            <h3 class="card-title" style="margin: 0; font-size: 1.1rem; letter-spacing: 0.5px;">
-                <i class="fas fa-microchip" style="color:var(--accent-primary);margin-right:10px"></i>AI MONITORING
-                CONSOLE
+<div style="display:grid;grid-template-columns:1fr 350px;gap:24px">
+    <!-- Video Feed Card -->
+    <div class="card" style="border:1px solid var(--border-color);background:var(--card-bg-glass);overflow:hidden;padding:0">
+        <div style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;padding:15px 20px">
+            <h3 style="margin:0;font-size:1rem;letter-spacing:0.5px">
+                <i class="fas fa-microchip" style="color:var(--accent-primary);margin-right:10px"></i>
+                AI MONITORING CONSOLE
             </h3>
-            <div style="display:flex;gap:10px">
-                <button class="btn btn-primary btn-sm" id="start-btn" onclick="startDemo()" style="padding: 6px 16px;">
+            <div style="display:flex;gap:10px;align-items:center">
+                <!-- Camera type label -->
+                <span style="font-size:0.68rem;color:var(--text-muted)" id="cam-type-label">Browser Webcam</span>
+                <button class="btn btn-primary btn-sm" id="start-btn" onclick="startDemo()">
                     <i class="fas fa-play"></i> START SYSTEM
                 </button>
-                <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopDemo()"
-                    style="display:none; padding: 6px 16px;">
+                <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopDemo()" style="display:none">
                     <i class="fas fa-power-off"></i> SHUTDOWN
                 </button>
             </div>
         </div>
-        <div class="camera-feed" id="camera-feed"
-            style="min-height:480px; position:relative; background: #000; display: flex; align-items: center; justify-content: center;">
-            <div class="empty-state" id="no-feed" style="text-align: center; color: var(--text-muted);">
-                <div class="icon" style="font-size: 4rem; opacity: 0.1; margin-bottom: 20px;"><i
-                        class="fas fa-video-slash"></i></div>
-                <h3 style="font-weight: 300;">System Standby</h3>
-                <p>Initialize the AI engine to begin real-time surveillance.</p>
-            </div>
-            <img id="demo-feed" style="display:none; width:100%; height: auto; object-fit: contain;"
-                alt="AI Monitoring Stream">
 
-            <!-- HUD Overlay -->
-            <div id="feed-overlay"
-                style="display:none; position:absolute; top:20px; left:20px; right:20px; bottom: 20px; z-index:2; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;">
-                <div style="position: absolute; top: 15px; left: 15px; display: flex; gap: 10px;">
-                    <span
-                        style="background:rgba(239,68,68,0.9); color:white; padding:5px 12px; border-radius:4px; font-size:0.7rem; font-weight:800; letter-spacing: 1px;">
-                        <span
-                            style="display:inline-block; width:8px; height:8px; border-radius:50%; background:white; margin-right:6px; animation:blink 1.2s infinite"></span>
-                        RECORDING
+        <div class="feed-container" id="feed-container">
+            <!-- Standby screen -->
+            <div id="no-feed" style="text-align:center;color:var(--text-muted)">
+                <div style="font-size:4rem;opacity:0.1;margin-bottom:20px"><i class="fas fa-video-slash"></i></div>
+                <h3 style="font-weight:300">System Standby</h3>
+                <p style="font-size:0.82rem">Click START SYSTEM to begin real-time face recognition via your browser's webcam.</p>
+            </div>
+
+            <!-- Browser webcam video (getUserMedia) -->
+            <video id="browser-video" autoplay playsinline muted
+                style="display:none;width:100%;height:auto;max-height:500px;object-fit:cover"></video>
+
+            <!-- Canvas overlay for face bounding boxes -->
+            <canvas id="face-canvas" class="face-overlay-canvas"></canvas>
+
+            <!-- HUD overlay -->
+            <div id="feed-overlay" style="display:none;position:absolute;top:15px;left:15px;right:15px;bottom:15px;pointer-events:none">
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <span class="hud-tag">
+                        <span style="width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1.2s infinite;display:inline-block"></span>
+                        LIVE
                     </span>
-                    <span
-                        style="background:rgba(0,0,0,0.6); color:rgba(255,255,255,0.8); padding:5px 12px; border-radius:4px; font-size:0.7rem; border: 1px solid rgba(255,255,255,0.2);">
-                        CAM_01 // SECURE_LINE
-                    </span>
+                    <span class="hud-cam">BROWSER CAM // FACE RECOGNITION</span>
+                </div>
+                <!-- Face count badge -->
+                <div style="position:absolute;bottom:0;left:0">
+                    <span id="face-count-badge" class="face-pill">0 faces in frame</span>
                 </div>
             </div>
+        </div>
+
+        <!-- Connection status bar -->
+        <div id="status-bar" style="padding:8px 16px;font-size:0.72rem;background:rgba(255,255,255,0.02);border-top:1px solid var(--border-color);display:flex;align-items:center;gap:8px">
+            <span id="conn-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);display:inline-block"></span>
+            <span id="conn-text" style="color:var(--text-muted)">Not connected — camera permission not yet granted</span>
         </div>
     </div>
 
-    <!-- AI Insights & Status -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
-        <div class="card"
-            style="border: 1px solid var(--border-color); background: var(--card-bg-glass); padding: 20px;">
-            <h4
-                style="margin: 0 0 15px; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">
-                System Status</h4>
-
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.85rem;">Face Recognition</span>
-                    <span id="status-face" class="badge"
-                        style="background: rgba(255,255,255,0.05); color: var(--text-muted);">STANDBY</span>
+    <!-- Right: Status + Active Directory -->
+    <div style="display:flex;flex-direction:column;gap:24px">
+        <!-- System Status -->
+        <div class="card" style="border:1px solid var(--border-color);background:var(--card-bg-glass);padding:20px">
+            <h4 style="margin:0 0 15px;font-size:0.9rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">System Status</h4>
+            <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:0.85rem">Face Recognition</span>
+                    <span id="status-face" class="badge" style="background:rgba(255,255,255,0.05);color:var(--text-muted)">STANDBY</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.85rem;">Audio Analysis</span>
-                    <span id="status-audio" class="badge"
-                        style="background: rgba(255,255,255,0.05); color: var(--text-muted);">INACTIVE</span>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:0.85rem">Camera Source</span>
+                    <span id="status-cam" class="badge" style="background:rgba(255,255,255,0.05);color:var(--text-muted)">NOT STARTED</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.85rem;">Neural Encodings</span>
-                    <span style="font-weight: 700; color: var(--accent-primary);">{{ enrolled_count }} Loaded</span>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:0.85rem">Neural Encodings</span>
+                    <span style="font-weight:700;color:var(--accent-primary)">{{ enrolled_count }} Loaded</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:0.85rem">Faces in Frame</span>
+                    <span id="status-faces-count" style="font-weight:700;color:var(--text-primary)">—</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:0.85rem">Recognized Today</span>
+                    <span id="status-recognized" style="font-weight:700;color:var(--success)">—</span>
                 </div>
             </div>
-
-            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
-
-            <div id="talking-indicator"
-                style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; text-align: center; opacity: 0.5;">
-                <i class="fas fa-microphone" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
-                <div style="font-size: 0.75rem; font-weight: 700;">AMBIENT NOISE MONITOR</div>
-                <div id="audio-level-text" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">NO
-                    SIGNAL</div>
+            <hr style="border:0;border-top:1px solid var(--border-color);margin:15px 0">
+            <!-- Live recognition feed -->
+            <div id="recognition-feed" style="font-size:0.78rem;color:var(--text-muted);min-height:40px">
+                <i>Recognition results will appear here…</i>
             </div>
         </div>
 
-        <div class="card"
-            style="border: 1px solid var(--border-color); background: var(--card-bg-glass); padding: 20px; flex: 1; display: flex; flex-direction: column;">
-            <h4
-                style="margin: 0 0 15px; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">
-                Active Directory</h4>
-            <div style="flex: 1; overflow-y: auto; max-height: 300px;">
+        <!-- Active Directory -->
+        <div class="card" style="border:1px solid var(--border-color);background:var(--card-bg-glass);padding:20px;flex:1">
+            <h4 style="margin:0 0 15px;font-size:0.9rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">Active Directory</h4>
+            <div style="overflow-y:auto;max-height:300px;display:flex;flex-direction:column;gap:8px">
                 {% for s in students %}
-                <div
-                    style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px;border:1px solid rgba(255,255,255,0.05)">
+                <div style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05)" id="student-{{ s.user.id }}">
                     <div class="user-avatar" style="width:32px;height:32px;font-size:0.75rem;flex-shrink:0">
-                        {% if s.face_image %}<img src="{{ s.face_image.url }}"
-                            style="width:100%;height:100%;object-fit:cover;border-radius:50%">{% else %}{{
-                        s.user.first_name|first }}{% endif %}
+                        {% if s.face_image %}<img src="{{ s.face_image.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">{% else %}{{ s.user.first_name|first }}{% endif %}
                     </div>
                     <div style="flex:1;min-width:0">
-                        <div
-                            style="font-weight:600;font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                            {{ s.full_name }}</div>
+                        <div style="font-weight:600;font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.full_name }}</div>
                         <div style="font-size:0.65rem;color:var(--text-muted)">{{ s.student_id }}</div>
                     </div>
-                    {% if s.face_encoding %}<i class="fas fa-check-circle"
-                        style="color: var(--success); font-size: 0.8rem;"></i>{% endif %}
+                    {% if s.face_encoding %}<i class="fas fa-check-circle" style="color:var(--success);font-size:0.8rem" title="Face enrolled"></i>
+                    {% else %}<i class="fas fa-times-circle" style="color:var(--text-muted);font-size:0.8rem;opacity:0.4" title="No face enrolled"></i>{% endif %}
+                    <span class="student-present-badge" style="display:none;font-size:0.6rem;font-weight:700;color:#00dc64;border:1px solid #00dc64;border-radius:10px;padding:1px 6px">✓ HERE</span>
                 </div>
                 {% endfor %}
             </div>
         </div>
     </div>
 </div>
-
-<style>
-    @keyframes blink {
-
-        0%,
-        100% {
-            opacity: 1
-        }
-
-        50% {
-            opacity: 0.3
-        }
-    }
-</style>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    let isDemoRunning = false;
+// ── Live Demo — Browser Webcam Pipeline ────────────────────────────────────
+// Architecture: getUserMedia() → hidden canvas → base64 JPEG → POST to
+// /dashboard/live-demo/process-frame/ → server runs face recognition →
+// JSON results → draw bbox canvas overlay + update status panel.
+// No server-side camera hardware required.
 
-    async function startDemo() {
-        const btn = document.getElementById('start-btn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+let isDemoRunning = false;
+let mediaStream   = null;
+let captureInterval = null;
+let totalRecognized = 0;
+let sessionRecognized = new Set(); // track unique IDs recognized this session
 
-        try {
-            const res = await fetch('{% url "dashboard:live_demo_start" %}', {
-                method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source: '0', camera_id: 'demo_cam' })
-            });
-            const data = await res.json();
+const video      = document.getElementById('browser-video');
+const canvas     = document.getElementById('face-canvas');
+const ctx        = canvas.getContext('2d');
+const hiddenCvs  = document.createElement('canvas'); // off-screen for JPEG encode
 
-            if (data.error) {
-                showToast(data.error, 'critical');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-play"></i> Start Live Demo';
-                return;
-            }
+async function startDemo() {
+    const btn = document.getElementById('start-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Requesting camera…';
 
-            // Show feed
-            const feed = document.getElementById('demo-feed');
-            feed.src = '{% url "dashboard:live_demo_feed" %}?camera_id=demo_cam&t=' + Date.now();
-            feed.style.display = 'block';
-            document.getElementById('no-feed').style.display = 'none';
-            document.getElementById('feed-overlay').style.display = 'flex';
-            document.getElementById('start-btn').style.display = 'none';
-            document.getElementById('stop-btn').style.display = 'inline-flex';
-            isDemoRunning = true;
-            showToast('Live demo started! Faces will be detected and recognized.', 'info');
-        } catch (err) {
-            showToast('Failed to start: ' + err.message, 'critical');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-play"></i> Start Live Demo';
-        }
+    try {
+        // Step 1: request browser camera permission
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+            audio: false,
+        });
+        video.srcObject = mediaStream;
+        await new Promise(res => video.onloadedmetadata = res);
+
+        // Show video
+        video.style.display = 'block';
+        document.getElementById('no-feed').style.display = 'none';
+        document.getElementById('feed-overlay').style.display = 'block';
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('stop-btn').style.display  = 'inline-flex';
+
+        // Status updates
+        setStatus('face', 'ACTIVE', '#00dc64');
+        setStatus('cam', 'BROWSER CAM', '#00dc64');
+        setConnStatus(true, 'Browser webcam active — face recognition running');
+
+        isDemoRunning = true;
+        startCaptureLoop();
+        showToast('Live demo started — face recognition is running.', 'info');
+
+    } catch (err) {
+        showToast('Camera error: ' + err.message, 'critical');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play"></i> START SYSTEM';
+        setConnStatus(false, 'Camera access denied or unavailable: ' + err.message);
+    }
+}
+
+function stopDemo() {
+    isDemoRunning = false;
+    clearInterval(captureInterval);
+    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    video.srcObject = null;
+    video.style.display = 'none';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('no-feed').style.display = 'block';
+    document.getElementById('feed-overlay').style.display = 'none';
+    document.getElementById('start-btn').style.display = 'inline-flex';
+    document.getElementById('start-btn').disabled = false;
+    document.getElementById('start-btn').innerHTML = '<i class="fas fa-play"></i> START SYSTEM';
+    document.getElementById('stop-btn').style.display = 'none';
+    setStatus('face', 'STANDBY', null);
+    setStatus('cam', 'NOT STARTED', null);
+    setConnStatus(false, 'Camera stopped');
+    document.getElementById('status-faces-count').textContent = '—';
+    document.getElementById('status-recognized').textContent = '—';
+    isDemoRunning = false;
+    showToast('Demo stopped.', 'info');
+}
+
+// ── Capture loop ──────────────────────────────────────────────────────────
+function startCaptureLoop() {
+    // Sync canvas size to video
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 480;
+    hiddenCvs.width  = canvas.width;
+    hiddenCvs.height = canvas.height;
+
+    captureInterval = setInterval(captureAndProcess, 300); // ~3 FPS to server
+}
+
+async function captureAndProcess() {
+    if (!isDemoRunning || video.readyState < 2) return;
+
+    // Sync canvas dimensions if video size changed
+    if (canvas.width !== video.videoWidth) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        hiddenCvs.width = canvas.width;
+        hiddenCvs.height = canvas.height;
     }
 
-    async function stopDemo() {
-        await fetch('{% url "dashboard:live_demo_stop" %}', {
+    // Draw current video frame to hidden canvas and encode JPEG
+    const hCtx = hiddenCvs.getContext('2d');
+    hCtx.drawImage(video, 0, 0, hiddenCvs.width, hiddenCvs.height);
+    const frameB64 = hiddenCvs.toDataURL('image/jpeg', 0.7);
+
+    try {
+        const res = await fetch('{% url "dashboard:process_browser_frame" %}', {
             method: 'POST',
             headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ camera_id: 'demo_cam' })
+            body: JSON.stringify({ frame: frameB64 }),
         });
-
-        document.getElementById('demo-feed').style.display = 'none';
-        document.getElementById('no-feed').style.display = 'block';
-        document.getElementById('feed-overlay').style.display = 'none';
-        document.getElementById('start-btn').style.display = 'inline-flex';
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('start-btn').innerHTML = '<i class="fas fa-play"></i> Start Live Demo';
-        document.getElementById('stop-btn').style.display = 'none';
-        isDemoRunning = false;
-        showToast('Demo stopped', 'info');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'ok') handleResults(data);
+    } catch (e) {
+        // Network error — silently skip frame
     }
+}
+
+// ── Results handler ────────────────────────────────────────────────────────
+function handleResults(data) {
+    const { faces, face_count, recognized } = data;
+
+    // Update status panel
+    const facesEl = document.getElementById('status-faces-count');
+    const recEl   = document.getElementById('status-recognized');
+
+    if (face_count === 0) {
+        facesEl.textContent = '0 — no one in frame';
+        facesEl.style.color = 'var(--text-muted)';
+    } else {
+        facesEl.textContent = face_count;
+        facesEl.style.color = 'var(--text-primary)';
+    }
+
+    // Count unique recognized today
+    faces.forEach(f => { if (f.user_id) sessionRecognized.add(f.user_id); });
+    recEl.textContent = sessionRecognized.size;
+
+    // Update face count badge
+    const badge = document.getElementById('face-count-badge');
+    badge.textContent = face_count === 0 ? '0 faces in frame'
+                      : `${face_count} face${face_count > 1 ? 's' : ''} — ${recognized} recognized`;
+    badge.className = 'face-pill' + (recognized > 0 ? '' : ' unknown');
+
+    // Draw bounding boxes on overlay canvas
+    drawFaces(faces);
+
+    // Update recognition feed text
+    updateRecognitionFeed(faces);
+
+    // Mark present in Active Directory
+    faces.forEach(f => {
+        if (f.user_id) {
+            const row = document.getElementById(`student-${f.user_id}`);
+            if (row) {
+                row.style.borderColor = 'rgba(0,220,100,0.3)';
+                row.querySelector('.student-present-badge').style.display = 'inline';
+            }
+        }
+    });
+}
+
+function drawFaces(faces) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const scaleX = canvas.clientWidth  / canvas.width;
+    const scaleY = canvas.clientHeight / canvas.height;
+
+    faces.forEach(f => {
+        const [x, y, w, h] = f.bbox;
+        const color = f.recognized ? '#00dc64' : '#ffb400';
+        const label = f.recognized ? `✓ ${f.name} (${f.confidence}%)` : '? Unknown';
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = 2;
+        ctx.strokeRect(x, y, w, h);
+
+        // Label background
+        ctx.fillStyle = color;
+        const textW = ctx.measureText(label).width + 12;
+        ctx.fillRect(x, y - 22, Math.max(textW, w), 22);
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.fillText(label, x + 6, y - 7);
+    });
+}
+
+function updateRecognitionFeed(faces) {
+    const el = document.getElementById('recognition-feed');
+    if (!faces.length) {
+        el.innerHTML = `<span style="color:var(--text-muted)">Scanning… (${new Date().toLocaleTimeString()})</span>`;
+        return;
+    }
+    el.innerHTML = faces.map(f =>
+        `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+            <span style="color:${f.recognized ? '#00dc64' : '#ffb400'}">${f.recognized ? '✓ ' + f.name : '? Unknown'}</span>
+            <span style="color:var(--text-muted)">${f.confidence}%</span>
+        </div>`
+    ).join('');
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function setStatus(id, text, color) {
+    const el = document.getElementById('status-' + id);
+    if (!el) return;
+    el.textContent = text;
+    if (color) { el.style.background = color + '22'; el.style.color = color; }
+    else { el.style.background = 'rgba(255,255,255,0.05)'; el.style.color = 'var(--text-muted)'; }
+}
+
+function setConnStatus(ok, msg) {
+    document.getElementById('conn-dot').style.background = ok ? '#00dc64' : 'var(--text-muted)';
+    document.getElementById('conn-text').textContent = msg;
+    document.getElementById('conn-text').style.color = ok ? 'var(--success)' : 'var(--text-muted)';
+}
 </script>
 {% endblock %}

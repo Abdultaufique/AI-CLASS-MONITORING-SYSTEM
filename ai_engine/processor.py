@@ -1,6 +1,13 @@
 """
 Main AI Processing Pipeline — coordinates face detection, recognition,
-talking detection, rule engine, and notifications.
+talking detection, rule engine, notifications, and attention monitoring.
+
+Attention monitoring integration:
+  After each face detection pass, detected face bboxes are passed to
+  AttentionAnalyzer (head pose + eye closure) and the results forwarded
+  to SessionManager which maintains the rolling attention score and persists
+  snapshots to the DB. This integration is completely transparent when no
+  attention session is active — push_frame_result is a no-op in that case.
 """
 import os
 import sys
@@ -10,6 +17,14 @@ import logging
 import threading
 
 import cv2
+
+# Attention monitoring — graceful import (no error if module unavailable)
+try:
+    from ai_engine.attention_analyzer import AttentionAnalyzer
+    from apps.attention.services.session_manager import SessionManager
+    _HAS_ATTENTION = True
+except ImportError:
+    _HAS_ATTENTION = False
 import django
 
 # Setup Django before importing models
@@ -42,6 +57,18 @@ class MonitoringProcessor:
         self.face_service = FaceService()
         self.rule_engine = RuleEngine(organization)
         self.is_running = False
+
+        # Attention analysis — initialized once per processor instance
+        if _HAS_ATTENTION:
+            from django.conf import settings
+            self._attention_analyzer = AttentionAnalyzer(
+                yaw_threshold=float(getattr(settings, 'ATTENTION_YAW_THRESHOLD', 30.0)),
+                pitch_threshold=float(getattr(settings, 'ATTENTION_PITCH_THRESHOLD', 25.0)),
+            )
+            self._session_manager = SessionManager.get_instance()
+        else:
+            self._attention_analyzer = None
+            self._session_manager = None
         self._thread = None
 
         # Load known faces
@@ -99,7 +126,7 @@ class MonitoringProcessor:
             time.sleep(0.1)  # Limit processing rate
 
     def _process_frame(self, frame):
-        """Process a single frame: detect, recognize, enforce rules."""
+        """Process a single frame: detect, recognize, enforce rules, score attention."""
         results = self.face_service.detect_and_recognize(frame)
 
         for result in results:
@@ -115,6 +142,19 @@ class MonitoringProcessor:
                     )
                 except User.DoesNotExist:
                     pass
+
+        # ── Attention analysis (non-blocking, no-op if no active session) ──────
+        if self._attention_analyzer and self._session_manager:
+            camera_id = str(self.camera.id)
+            if self._session_manager.has_active_session(camera_id):
+                try:
+                    face_bboxes = [r['location'] for r in results]
+                    attention_results = self._attention_analyzer.analyze_faces(
+                        frame, face_bboxes
+                    )
+                    self._session_manager.push_frame_result(camera_id, attention_results)
+                except Exception as att_exc:
+                    logger.debug("Attention analysis error (non-fatal): %s", att_exc)
 
     def process_talking_event(self, user_id):
         """Called when talking is detected for a user."""

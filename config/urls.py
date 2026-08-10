@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/violations/', include('apps.violations.urls')),
     path('api/notifications/', include('apps.notifications.urls')),
     path('dashboard/', include('apps.dashboard.urls')),
+    path('dashboard/attention/', include('apps.attention.urls')),
     path('', RedirectView.as_view(url='/dashboard/', permanent=False)),
 ]
 

@@ -35,6 +35,10 @@
                 <a href="{% url 'dashboard:live_demo' %}" class="nav-item {% if page_title == 'Live Demo' %}active{% endif %}" id="nav-live-demo">
                     <span class="nav-icon"><i class="fas fa-play-circle"></i></span> Live Demo
                 </a>
+                <a href="{% url 'attention:dashboard' %}" class="nav-item {% if page_title == 'Attention Monitor' %}active{% endif %}" id="nav-attention">
+                    <span class="nav-icon"><i class="fas fa-brain"></i></span> Attention
+                    <span class="nav-badge" id="attention-alert-badge" style="display:none;background:#dc3232">!</span>
+                </a>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Records</div>

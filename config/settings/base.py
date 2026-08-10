@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'apps.violations',
     'apps.notifications',
     'apps.dashboard',
+    'apps.attention',   # Attention Monitoring (v1 upgrade)
 ]
 
 MIDDLEWARE = [
@@ -133,3 +134,27 @@ AUDIO_SAMPLE_RATE = int(os.getenv('AUDIO_SAMPLE_RATE', '44100'))
 DEFAULT_CAMERA_SOURCE = os.getenv('DEFAULT_CAMERA_SOURCE', '0')
 CAMERA_FRAME_WIDTH = int(os.getenv('CAMERA_FRAME_WIDTH', '640'))
 CAMERA_FRAME_HEIGHT = int(os.getenv('CAMERA_FRAME_HEIGHT', '480'))
+
+# ── Attention Monitoring Settings ──────────────────────────────────────────────
+#
+# Privacy default: ATTENTION_PRIVACY_MODE=True means only class-wide attention %
+# is exposed in the dashboard and reports. No per-slot (anonymous) face cards
+# are shown. Set to False to enable per-slot display (still anonymous, no names).
+#
+# Alert: triggers an in-dashboard notification when class attention stays below
+# ATTENTION_ALERT_THRESHOLD for ATTENTION_ALERT_DURATION_SECS seconds.
+#
+# Rolling window: number of frames used for each slot's attention score smoothing.
+# Higher = smoother, lower = more reactive to momentary changes.
+#
+# Yaw/Pitch thresholds: head rotation angles beyond which a face is classified
+# as 'distracted'. These are HEURISTIC APPROXIMATIONS — not validated baselines.
+# Adjust conservatively to reduce false positives for students at wide camera angles.
+
+ATTENTION_PRIVACY_MODE = os.getenv('ATTENTION_PRIVACY_MODE', 'True').lower() in ('true', '1', 'yes')
+ATTENTION_ALERT_THRESHOLD = float(os.getenv('ATTENTION_ALERT_THRESHOLD', '0.50'))
+ATTENTION_ALERT_DURATION_SECS = int(os.getenv('ATTENTION_ALERT_DURATION_SECS', '30'))
+ATTENTION_ROLLING_WINDOW_FRAMES = int(os.getenv('ATTENTION_ROLLING_WINDOW_FRAMES', '30'))
+ATTENTION_SNAPSHOT_INTERVAL_SECS = int(os.getenv('ATTENTION_SNAPSHOT_INTERVAL_SECS', '5'))
+ATTENTION_YAW_THRESHOLD = float(os.getenv('ATTENTION_YAW_THRESHOLD', '30.0'))
+ATTENTION_PITCH_THRESHOLD = float(os.getenv('ATTENTION_PITCH_THRESHOLD', '25.0'))

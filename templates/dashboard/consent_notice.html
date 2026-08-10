@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Privacy & Consent Notice{% endblock %}
+{% block content %}
+<div style="max-width:760px;margin:0 auto">
+
+    <div class="card" style="border:1px solid var(--border-color);padding:36px 40px">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px;border-bottom:1px solid var(--border-color);padding-bottom:20px">
+            <div style="font-size:2.5rem">🛡️</div>
+            <div>
+                <h2 style="margin:0;font-size:1.4rem">Privacy & Consent Notice</h2>
+                <div style="color:var(--text-muted);font-size:0.85rem;margin-top:4px">
+                    AI-Based Classroom Attention Monitoring — LSOYS Platform
+                </div>
+            </div>
+        </div>
+
+        <!-- What this tool is -->
+        <section style="margin-bottom:28px">
+            <h3 style="font-size:1rem;color:var(--accent-primary);margin-bottom:10px">
+                <i class="fas fa-info-circle" style="margin-right:8px"></i>What This Tool Does
+            </h3>
+            <p style="font-size:0.88rem;line-height:1.7;color:var(--text-secondary)">
+                The Classroom Attention Monitor uses a classroom camera feed to estimate how many students
+                appear visually engaged during a lesson — based on head orientation and eye openness detected
+                by computer vision. The teacher sees a live <strong>class-wide attention percentage</strong>
+                and a session report afterwards.
+            </p>
+            <p style="font-size:0.88rem;line-height:1.7;color:var(--text-secondary)">
+                This is a <strong>teacher feedback tool</strong>, not a surveillance or disciplinary system.
+                It is designed to help educators identify when a class may be losing engagement so they can
+                adjust pacing or delivery — not to monitor, rank, or penalise individual students.
+            </p>
+        </section>
+
+        <!-- Accuracy disclaimer -->
+        <section style="margin-bottom:28px;padding:18px 20px;
+            background:rgba(255,180,0,0.07);border:1px solid rgba(255,180,0,0.25);border-radius:10px">
+            <h3 style="font-size:0.95rem;color:var(--warning);margin:0 0 10px">
+                <i class="fas fa-exclamation-triangle" style="margin-right:8px"></i>
+                Accuracy Limitation — Important
+            </h3>
+            <p style="font-size:0.83rem;line-height:1.7;color:var(--text-secondary);margin:0">
+                The attention classifier uses <strong>geometric heuristics only</strong> (head yaw/pitch
+                angles from camera + eye detection). It is <strong>not a validated measure of cognitive
+                attention or learning</strong>. A student may look forward while mentally disengaged, or
+                look sideways while fully engaged. Results should be treated as rough, directional signals
+                — not as accurate data about any individual's mental state. Do <strong>not</strong> use
+                this system as the sole basis for any academic, disciplinary, or welfare decision.
+            </p>
+        </section>
+
+        <!-- Data & privacy -->
+        <section style="margin-bottom:28px">
+            <h3 style="font-size:1rem;color:var(--accent-primary);margin-bottom:10px">
+                <i class="fas fa-database" style="margin-right:8px"></i>Data Collected & Minimisation
+            </h3>
+            <ul style="font-size:0.85rem;line-height:1.9;color:var(--text-secondary);padding-left:20px;margin:0">
+                <li><strong>No raw video is stored.</strong> Camera frames are processed in memory and discarded after scoring.</li>
+                <li><strong>No biometric data is stored.</strong> No face encodings, images, or unique identifiers of individuals are retained by the attention system.</li>
+                <li>Only <strong>aggregate, anonymised numeric metrics</strong> are persisted: class-wide attention percentage, timestamp, and face counts per 5-second interval.</li>
+                <li>In the default <strong>privacy mode (aggregate-only)</strong>, not even anonymous per-slot data is shown in the UI.</li>
+                <li>Session reports contain only statistical summaries (avg %, dip timestamps). No individual data is included.</li>
+            </ul>
+        </section>
+
+        <!-- Bias & fairness -->
+        <section style="margin-bottom:28px;padding:18px 20px;
+            background:rgba(100,180,255,0.05);border:1px solid rgba(100,180,255,0.2);border-radius:10px">
+            <h3 style="font-size:0.95rem;color:var(--accent-secondary,#64b4ff);margin:0 0 10px">
+                <i class="fas fa-balance-scale" style="margin-right:8px"></i>Bias & Fairness Notice
+            </h3>
+            <p style="font-size:0.83rem;line-height:1.7;color:var(--text-secondary);margin:0">
+                Computer-vision head-pose and eye-detection algorithms can perform unevenly across
+                different skin tones, camera angles, lighting conditions, and facial features such as
+                glasses, masks, or heavy eye shadow. This means classification accuracy is <strong>not
+                uniform across all students</strong>. Teachers should be aware of this limitation and
+                should not draw conclusions about individual students based on these estimates. We
+                encourage testing with diverse faces and lighting conditions before deployment.
+            </p>
+        </section>
+
+        <!-- Consent & governance -->
+        <section style="margin-bottom:28px">
+            <h3 style="font-size:1rem;color:var(--accent-primary);margin-bottom:10px">
+                <i class="fas fa-gavel" style="margin-right:8px"></i>Consent & Governance
+            </h3>
+            <ul style="font-size:0.85rem;line-height:1.9;color:var(--text-secondary);padding-left:20px;margin:0">
+                <li>This tool should only be deployed with the explicit knowledge and consent of students, parents/guardians (where required), and institution administration.</li>
+                <li>Institutions must ensure compliance with applicable data protection law (India DPDP Act 2023, GDPR, FERPA, or equivalent) before deploying in a classroom.</li>
+                <li>This notice should be displayed to all users who will be monitored <strong>before</strong> a session begins.</li>
+                <li>Use of the system for individual disciplinary purposes is <strong>not permitted</strong> under this tool's intended scope.</li>
+            </ul>
+        </section>
+
+        <!-- Out of scope -->
+        <section style="margin-bottom:24px">
+            <h3 style="font-size:1rem;color:var(--accent-primary);margin-bottom:10px">
+                <i class="fas fa-ban" style="margin-right:8px"></i>Explicitly Out of Scope (v1)
+            </h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                {% for item in "Emotion / sentiment classification,Academic performance correlation,Facial recognition / identity matching,Audio-based engagement analysis,Persistent video storage,Individual disciplinary reporting"|split:"," %}
+                <div style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--text-secondary)">
+                    <span style="color:#dc3232">✗</span> {{ item }}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div style="padding:16px 20px;background:rgba(0,220,100,0.05);border:1px solid rgba(0,220,100,0.2);border-radius:8px;font-size:0.82rem;color:var(--text-secondary)">
+            <i class="fas fa-check-circle" style="color:#00dc64;margin-right:8px"></i>
+            By starting an attention monitoring session, the teacher/operator confirms that appropriate
+            consent has been obtained and that this tool will be used in accordance with this notice.
+        </div>
+
+        <div style="margin-top:24px;display:flex;gap:12px">
+            <a href="{% url 'attention:dashboard' %}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <a href="{% url 'dashboard:settings' %}" class="btn">
+                <i class="fas fa-cog"></i> Attention Settings
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

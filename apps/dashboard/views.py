@@ -19,15 +19,22 @@ def index(request):
     org = request.organization
     today = timezone.now().date()
 
+    students_qs = UserProfile.objects.filter(organization=org, role='student') if org else UserProfile.objects.none()
+    total_students = students_qs.count()
+    enrolled_count = students_qs.filter(face_encoding__isnull=False).exclude(face_encoding=b'').count() if org else 0
+    unenrolled_count = total_students - enrolled_count
+
     context = {
         'page_title': 'Dashboard',
         'today_attendance': Attendance.objects.filter(organization=org, date=today).count() if org else 0,
-        'total_students': UserProfile.objects.filter(organization=org, role='student').count() if org else 0,
+        'total_students': total_students,
+        'enrolled_count': enrolled_count,
+        'unenrolled_count': unenrolled_count,
         'today_warnings': Warning.objects.filter(organization=org, created_at__date=today).count() if org else 0,
         'today_violations': Violation.objects.filter(organization=org, date=today).count() if org else 0,
         'active_cameras': Camera.objects.filter(organization=org, is_monitoring=True).count() if org else 0,
         'cameras': Camera.objects.filter(organization=org, is_active=True) if org else [],
-        'recent_notifications': Notification.objects.filter(organization=org)[:10] if org else [],
+        'recent_notifications': Notification.objects.filter(organization=org).order_by('-created_at')[:10] if org else [],
         'recent_attendance': Attendance.objects.filter(organization=org, date=today).select_related('user')[:10] if org else [],
     }
     return render(request, 'dashboard/index.html', context)

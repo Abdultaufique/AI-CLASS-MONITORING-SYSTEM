@@ -3,6 +3,7 @@ URL routing for dashboard app.
 """
 from django.urls import path
 from . import views
+from .frame_processor import process_browser_frame, process_attention_frame
 
 app_name = 'dashboard'
 
@@ -18,4 +19,7 @@ urlpatterns = [
     path('live-demo/start/', views.live_demo_start, name='live_demo_start'),
     path('live-demo/stop/', views.live_demo_stop, name='live_demo_stop'),
     path('api/stats/', views.dashboard_stats_api, name='stats-api'),
+    # Browser webcam frame processing endpoints (P1 fix)
+    path('live-demo/process-frame/', process_browser_frame, name='process_browser_frame'),
+    path('attention/process-frame/', process_attention_frame, name='process_attention_frame'),
 ]

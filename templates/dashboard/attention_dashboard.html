@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+{% block title %}Attention Monitor{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Attention Dashboard Styles ─────────────────────────────────────── */
+.attention-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    align-items: start;
+}
+.gauge-card {
+    background: var(--card-bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    position: relative;
+}
+.gauge-ring-wrap {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 16px;
+}
+.gauge-svg { width: 200px; height: 200px; transform: rotate(-90deg); }
+.gauge-bg   { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 16; }
+.gauge-fill { fill: none; stroke-width: 16; stroke-linecap: round;
+              stroke-dasharray: 502; stroke-dashoffset: 502;
+              transition: stroke-dashoffset 0.8s ease, stroke 0.6s ease; }
+.gauge-center {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.gauge-pct { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+.gauge-label { font-size: 0.65rem; color: var(--text-muted); letter-spacing: 1px; margin-top: 4px; }
+.session-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 10px; margin-bottom: 20px;
+}
+.session-bar select { flex:1; background: var(--card-bg); border: 1px solid var(--border-color);
+    color: var(--text-primary); padding: 6px 10px; border-radius: 6px; }
+.mini-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+.mini-stat { background: rgba(255,255,255,0.03); border: 1px solid var(--border-color);
+    border-radius: 10px; padding: 14px; text-align: center; }
+.mini-stat .val { font-size: 1.5rem; font-weight: 700; }
+.mini-stat .lbl { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
+.chart-card {
+    background: var(--card-bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: 12px; padding: 20px; margin-top: 24px;
+}
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px,1fr)); gap: 10px; margin-top: 16px; }
+.slot-card {
+    border-radius: 10px; padding: 12px 8px; text-align: center;
+    border: 1px solid var(--border-color); background: rgba(255,255,255,0.03);
+    transition: background 0.3s, border-color 0.3s;
+}
+.slot-card.attentive { background: rgba(0,220,100,0.08); border-color: rgba(0,220,100,0.3); }
+.slot-card.distracted { background: rgba(220,50,50,0.08); border-color: rgba(220,50,50,0.3); }
+.slot-card.uncertain { background: rgba(255,180,0,0.08); border-color: rgba(255,180,0,0.3); }
+.slot-icon { font-size: 1.4rem; }
+.slot-label { font-size: 0.6rem; color: var(--text-muted); margin-top: 4px; }
+.alert-banner {
+    display: none; align-items: center; gap: 12px;
+    background: rgba(220,50,50,0.15); border: 1px solid rgba(220,50,50,0.5);
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;
+    animation: pulse-border 2s infinite;
+}
+.alert-banner.active { display: flex; }
+@keyframes pulse-border {
+    0%,100% { border-color: rgba(220,50,50,0.5); }
+    50% { border-color: rgba(220,50,50,1); }
+}
+.privacy-notice {
+    background: rgba(100,180,255,0.06);
+    border: 1px solid rgba(100,180,255,0.2);
+    border-radius: 8px; padding: 10px 14px; font-size: 0.75rem;
+    color: var(--text-muted); margin-top: 12px;
+}
+.session-history { margin-top: 8px; }
+.history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.78rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Alert Banner (hidden by default, shown when JS detects low-attention alert) -->
+<div class="alert-banner" id="alert-banner">
+    <span style="font-size:1.5rem">⚠️</span>
+    <div>
+        <div style="font-weight:700;font-size:0.9rem">Low Attention Alert</div>
+        <div id="alert-detail" style="font-size:0.75rem;color:var(--text-muted)">
+            Class attention has been below the threshold for a sustained period.
+        </div>
+    </div>
+    <button onclick="document.getElementById('alert-banner').classList.remove('active')"
+        style="margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem">×</button>
+</div>
+
+<!-- Session control bar -->
+<div class="session-bar">
+    <i class="fas fa-video" style="color:var(--accent-primary)"></i>
+    <select id="camera-select" onchange="onCameraChange()">
+        <option value="demo_cam">Demo Webcam (Browser)</option>
+        {% for cam in cameras %}
+        <option value="{{ cam.id }}">{{ cam.name }}</option>
+        {% endfor %}
+    </select>
+    <button class="btn btn-primary btn-sm" id="start-session-btn" onclick="startSession()">
+        <i class="fas fa-play"></i> Start Session
+    </button>
+    <button class="btn btn-danger btn-sm" id="end-session-btn" onclick="endSession()" style="display:none">
+        <i class="fas fa-stop"></i> End Session
+    </button>
+    <span id="session-timer" style="font-size:0.8rem;color:var(--text-muted);min-width:60px;text-align:right"></span>
+</div>
+
+<!-- Browser webcam preview (hidden until session starts) -->
+<div id="webcam-panel" style="display:none;margin-bottom:20px;position:relative;background:#000;border-radius:12px;overflow:hidden;border:1px solid var(--border-color);">
+    <video id="attn-video" autoplay playsinline muted
+        style="width:100%;max-height:240px;object-fit:cover;display:block"></video>
+    <div style="position:absolute;top:10px;left:12px;display:flex;gap:8px">
+        <span style="background:rgba(239,68,68,0.9);color:#fff;padding:3px 10px;border-radius:4px;font-size:0.65rem;font-weight:800">● LIVE — ATTENTION ENGINE</span>
+    </div>
+    <!-- Connection status line -->
+    <div id="attn-cam-status" style="position:absolute;bottom:0;left:0;right:0;padding:6px 12px;background:rgba(0,0,0,0.7);font-size:0.68rem;color:var(--text-muted)">
+        Initialising camera…
+    </div>
+</div>
+
+<div class="attention-grid">
+    <!-- Left: Gauge + Mini Stats + Chart -->
+    <div>
+        <div class="gauge-card">
+            <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:16px">
+                <i class="fas fa-brain" style="color:var(--accent-primary);margin-right:6px"></i>
+                Class Attention — Estimated
+            </div>
+            <div class="gauge-ring-wrap">
+                <svg class="gauge-svg" viewBox="0 0 200 200">
+                    <circle class="gauge-bg"   cx="100" cy="100" r="80"/>
+                    <circle class="gauge-fill" cx="100" cy="100" r="80" id="gauge-fill"/>
+                </svg>
+                <div class="gauge-center">
+                    <div class="gauge-pct" id="gauge-pct">—</div>
+                    <div class="gauge-label">ATTENTIVE</div>
+                </div>
+            </div>
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px">
+                ⚠ Approximation only — not a validated metric.
+                <a href="{% url 'attention:consent' %}" target="_blank"
+                   style="color:var(--accent-primary)">Learn more</a>
+            </div>
+
+            <div class="mini-stats">
+                <div class="mini-stat">
+                    <div class="val" id="stat-faces">0</div>
+                    <div class="lbl">Faces</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="val" id="stat-attentive" style="color:#00dc64">0</div>
+                    <div class="lbl">Attentive</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="val" id="stat-uncertain" style="color:#64b4ff">0</div>
+                    <div class="lbl">Uncertain</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="val" id="stat-distracted" style="color:#dc3232">0</div>
+                    <div class="lbl">Distracted</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="val" id="stat-drowsy" style="color:#ffb400">0</div>
+                    <div class="lbl">Drowsy</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attention-over-time chart -->
+        <div class="chart-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <h4 style="margin:0;font-size:0.9rem">Attention Over Time</h4>
+                <span id="session-id-display" style="font-size:0.65rem;color:var(--text-muted)">No active session</span>
+            </div>
+            <canvas id="attention-chart" height="120"></canvas>
+        </div>
+    </div>
+
+    <!-- Right panel: status + slots + session history -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- Status card -->
+        <div class="card" style="border:1px solid var(--border-color);background:var(--card-bg-glass);padding:20px">
+            <h4 style="margin:0 0 14px;font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">
+                System Status
+            </h4>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:0.82rem">
+                <div style="display:flex;justify-content:space-between">
+                    <span>Attention Engine</span>
+                    <span id="status-attention" class="badge" style="background:rgba(255,255,255,0.05);color:var(--text-muted)">STANDBY</span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                    <span>Camera Feed</span>
+                    <span id="status-cam-feed" class="badge" style="background:rgba(255,255,255,0.05);color:var(--text-muted)">NOT STARTED</span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                    <span>Head Pose</span>
+                    <!-- States: '—' (no session), 'NO CAMERA' (no permission), 'NO FACES' (camera ok, empty room), 'RUNNING' (faces detected) -->
+                    <span id="status-pose" class="badge" style="background:rgba(255,255,255,0.05);color:var(--text-muted)">—</span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                    <span>Privacy Mode</span>
+                    <span class="badge" style="background:rgba(100,180,255,0.15);color:var(--accent-primary)">
+                        {% if privacy_mode %}AGGREGATE ONLY{% else %}PER-SLOT (ANON){% endif %}
+                    </span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                    <span>Alert Threshold</span>
+                    <span style="font-weight:700;color:var(--warning)">{{ alert_threshold }}%</span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                    <span>Alert Duration</span>
+                    <span style="color:var(--text-muted)">{{ alert_duration }}s sustained</span>
+                </div>
+            </div>
+            <div class="privacy-notice" id="privacy-notice">
+                <i class="fas fa-shield-alt" style="margin-right:4px"></i>
+                Privacy mode active — only class-wide % is shown.
+                No per-student data collected or stored.
+            </div>
+        </div>
+
+        <!-- Per-slot grid (shown only when aggregate_only=False) -->
+        <div class="card" id="slot-panel"
+            style="border:1px solid var(--border-color);background:var(--card-bg-glass);padding:20px;
+                   {% if privacy_mode %}display:none{% endif %}">
+            <h4 style="margin:0 0 4px;font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">
+                Face Slots (Anonymous)
+            </h4>
+            <p style="font-size:0.7rem;color:var(--text-muted);margin:0 0 12px">
+                Slots are positional — not linked to any individual's identity.
+            </p>
+            <div class="slot-grid" id="slot-grid">
+                <div style="font-size:0.75rem;color:var(--text-muted);grid-column:1/-1">No faces detected</div>
+            </div>
+        </div>
+
+        <!-- Export & Session History -->
+        <div class="card" style="border:1px solid var(--border-color);background:var(--card-bg-glass);padding:20px">
+            <h4 style="margin:0 0 12px;font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">
+                Past Sessions
+            </h4>
+            <div class="session-history">
+                {% for sess in recent_sessions %}
+                <div class="history-item">
+                    <div>
+                        <div style="font-weight:600">{{ sess.started_at|date:"M d, H:i" }}</div>
+                        <div style="color:var(--text-muted);font-size:0.7rem">{{ sess.camera.name|default:"Demo Webcam" }}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <a href="{% url 'attention:export_csv' sess.id %}"
+                           class="btn btn-sm" style="padding:4px 10px;font-size:0.7rem"
+                           title="Download CSV report">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div style="color:var(--text-muted);font-size:0.78rem">No past sessions yet.</div>
+                {% endfor %}
+            </div>
+            <div id="export-current" style="margin-top:12px;display:none">
+                <button class="btn btn-sm" id="export-btn" onclick="exportCurrentReport()"
+                    style="width:100%;font-size:0.78rem">
+                    <i class="fas fa-download"></i> Export Current Session CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Attention Dashboard ────────────────────────────────────────────────────
+const PRIVACY_MODE = {{ privacy_mode|yesno:"true,false" }};
+let currentCameraId  = document.getElementById('camera-select').value;
+let currentSessionId = null;
+let sessionActive    = false;
+let wsConn           = null;
+let chartLabels      = [];
+let chartData        = [];
+let attentionChart   = null;
+let timerInterval    = null;
+let sessionStartTime = null;
+
+// Browser webcam state
+let mediaStream       = null;
+let captureInterval   = null;
+const hiddenCvs       = document.createElement('canvas');
+
+// ── Chart.js setup ─────────────────────────────────────────────────────────
+const ctx = document.getElementById('attention-chart').getContext('2d');
+attentionChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: chartLabels,
+        datasets: [{
+            label: 'Class Attention %',
+            data: chartData,
+            borderColor: 'rgba(100,200,120,0.9)',
+            backgroundColor: 'rgba(100,200,120,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4,
+            fill: true,
+        }]
+    },
+    options: {
+        responsive: true,
+        animation: { duration: 400 },
+        scales: {
+            x: { display: false },
+            y: {
+                min: 0, max: 100,
+                ticks: { callback: v => v + '%', color: '#888', font: { size: 10 } },
+                grid:  { color: 'rgba(255,255,255,0.05)' },
+            }
+        },
+        plugins: { legend: { display: false } },
+    }
+});
+
+// ── Camera change ──────────────────────────────────────────────────────────
+function onCameraChange() {
+    currentCameraId = document.getElementById('camera-select').value;
+    if (sessionActive) {
+        showToast('Camera changed. End current session and start a new one to switch.', 'warning');
+    }
+}
+
+// ── Session start/stop ────────────────────────────────────────────────────
+async function startSession() {
+    const btn = document.getElementById('start-session-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+    try {
+        const res = await fetch('{% url "attention:session_start" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ camera_id: currentCameraId })
+        });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, 'critical'); btn.disabled=false; btn.innerHTML='<i class="fas fa-play"></i> Start Session'; return; }
+
+        currentSessionId = data.session_id;
+        sessionActive    = true;
+        sessionStartTime = Date.now();
+        chartLabels      = [];
+        chartData        = [];
+        attentionChart.update();
+
+        document.getElementById('start-session-btn').style.display = 'none';
+        document.getElementById('end-session-btn').style.display   = 'inline-flex';
+        document.getElementById('export-current').style.display     = 'block';
+        document.getElementById('session-id-display').textContent   = 'Session ' + currentSessionId.slice(0,8);
+        document.getElementById('status-attention').textContent     = 'ACTIVE';
+        document.getElementById('status-attention').style.cssText   = 'background:rgba(0,220,100,0.15);color:#00dc64';
+        document.getElementById('status-pose').textContent          = 'NO CAMERA';
+        startTimer();
+        connectWebSocket();
+        startBrowserCapture();   // ← start getUserMedia pipeline
+        showToast('Attention session started. Grant camera access when prompted.', 'info');
+    } catch (e) {
+        showToast('Failed to start: ' + e.message, 'critical');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play"></i> Start Session';
+    }
+}
+
+async function endSession() {
+    sessionActive = false;
+    stopBrowserCapture();
+    if (wsConn) { wsConn.close(); wsConn = null; }
+    stopTimer();
+
+    await fetch('{% url "attention:session_end" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ camera_id: currentCameraId })
+    });
+
+    document.getElementById('end-session-btn').style.display   = 'none';
+    document.getElementById('start-session-btn').style.display = 'inline-flex';
+    document.getElementById('start-session-btn').disabled       = false;
+    document.getElementById('start-session-btn').innerHTML      = '<i class="fas fa-play"></i> Start Session';
+    document.getElementById('status-attention').textContent     = 'ENDED';
+    document.getElementById('status-attention').style.cssText   = 'background:rgba(255,255,255,0.05);color:var(--text-muted)';
+    document.getElementById('status-pose').textContent          = '—';
+    document.getElementById('status-cam-feed').textContent      = 'NOT STARTED';
+    document.getElementById('status-cam-feed').style.cssText    = 'background:rgba(255,255,255,0.05);color:var(--text-muted)';
+    document.getElementById('webcam-panel').style.display       = 'none';
+    showToast('Session ended. Download the report below.', 'info');
+    setTimeout(() => location.reload(), 1500);
+}
+
+// ── Browser Webcam Capture (the missing link) ─────────────────────────────
+// getUserMedia() → hidden canvas → JPEG → POST to process_attention_frame
+// → server runs AttentionAnalyzer → SessionManager → returns live state
+async function startBrowserCapture() {
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+            audio: false,
+        });
+        const video = document.getElementById('attn-video');
+        video.srcObject = mediaStream;
+        await new Promise(res => video.onloadedmetadata = res);
+
+        hiddenCvs.width  = video.videoWidth  || 640;
+        hiddenCvs.height = video.videoHeight || 480;
+
+        document.getElementById('webcam-panel').style.display = 'block';
+        document.getElementById('attn-cam-status').textContent = 'Camera active — sending frames to AI engine';
+        document.getElementById('status-cam-feed').textContent  = 'BROWSER CAM';
+        document.getElementById('status-cam-feed').style.cssText = 'background:rgba(0,220,100,0.15);color:#00dc64';
+        document.getElementById('status-pose').textContent      = 'NO FACES';
+
+        captureInterval = setInterval(captureAndSend, 250); // 4 FPS to server
+    } catch (err) {
+        document.getElementById('status-cam-feed').textContent  = 'NO PERMISSION';
+        document.getElementById('status-cam-feed').style.cssText = 'background:rgba(220,50,50,0.15);color:#dc3232';
+        document.getElementById('status-pose').textContent      = 'NO CAMERA';
+        document.getElementById('attn-cam-status').textContent  = 'Camera access denied: ' + err.message;
+        showToast('Camera access denied — grant permission to enable attention tracking.', 'warning');
+    }
+}
+
+function stopBrowserCapture() {
+    clearInterval(captureInterval);
+    captureInterval = null;
+    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    const video = document.getElementById('attn-video');
+    if (video) video.srcObject = null;
+}
+
+async function captureAndSend() {
+    if (!sessionActive) return;
+    const video = document.getElementById('attn-video');
+    if (!video || video.readyState < 2) return;
+
+    const hCtx = hiddenCvs.getContext('2d');
+    hCtx.drawImage(video, 0, 0, hiddenCvs.width, hiddenCvs.height);
+    const frameB64 = hiddenCvs.toDataURL('image/jpeg', 0.65);
+
+    try {
+        const res = await fetch('{% url "dashboard:process_attention_frame" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frame: frameB64, camera_id: currentCameraId }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'ok' && data.state) {
+            const s = data.state;
+            const faces = s.total_slots ?? 0;
+            document.getElementById('status-pose').textContent = faces > 0 ? 'RUNNING' : 'NO FACES';
+
+            // Populate all stat cards (low-latency direct update from frame response)
+            document.getElementById('stat-faces').textContent      = faces;
+            if (faces > 0) {
+                document.getElementById('stat-attentive').textContent  = s.attentive    ?? 0;
+                document.getElementById('stat-uncertain').textContent  = s.uncertain    ?? 0;
+                document.getElementById('stat-distracted').textContent = s.distracted   ?? 0;
+                document.getElementById('stat-drowsy').textContent     = s.drowsy_count ?? 0;
+
+                // Low-latency gauge update from frame data (WebSocket may be delayed)
+                const rawPct = s.class_pct;
+                if (rawPct !== null && rawPct !== undefined) {
+                    updateGauge(Math.round(rawPct * 100));
+                }
+            }
+
+            // Status bar at bottom of webcam preview
+            document.getElementById('attn-cam-status').textContent =
+                faces === 0
+                ? 'Camera active — no faces detected in frame'
+                : `Camera active — ${faces} face${faces > 1 ? 's' : ''} (${s.attentive ?? 0} attentive, ${s.drowsy_count ?? 0} drowsy)`;
+        }
+    } catch (e) { /* skip frame on network error */ }
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function connectWebSocket() {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${protocol}//${location.host}/ws/attention/${currentCameraId}/`;
+    wsConn = new WebSocket(url);
+    wsConn.onmessage = (e) => handleState(JSON.parse(e.data));
+    wsConn.onclose   = () => { if (sessionActive) setTimeout(connectWebSocket, 3000); };
+    wsConn.onerror   = () => { startPollingFallback(); };
+}
+
+function startPollingFallback() {
+    // Fallback to HTTP polling if WebSocket fails
+    if (!sessionActive) return;
+    setInterval(async () => {
+        if (!sessionActive) return;
+        const r = await fetch(`{% url "attention:live_api" %}?camera_id=${currentCameraId}`);
+        if (r.ok) handleState(await r.json());
+    }, 2000);
+}
+
+// ── State handler ──────────────────────────────────────────────────────────
+function handleState(state) {
+    if (!state || state.status === 'no_session') return;
+    if (state.type === 'alert') { showAlertBanner(state.message); return; }
+
+    // v2 scorer: class_pct is null when no faces in frame → show "—" not "0%"
+    const rawPct = state.class_pct;
+    const pct = (rawPct === null || rawPct === undefined)
+        ? null
+        : Math.round(rawPct * 100);
+
+    updateGauge(pct);
+
+    const faces = state.total_slots ?? 0;
+    document.getElementById('stat-faces').textContent      = faces;
+    document.getElementById('stat-attentive').textContent  = state.attentive    ?? 0;
+    document.getElementById('stat-uncertain').textContent  = state.uncertain    ?? 0;
+    document.getElementById('stat-distracted').textContent = state.distracted   ?? 0;
+    document.getElementById('stat-drowsy').textContent     = state.drowsy_count ?? 0;
+
+    if (mediaStream) {
+        document.getElementById('status-pose').textContent = faces > 0 ? 'RUNNING' : 'NO FACES';
+    }
+
+    // Chart: null = gap in line (no misleading 0% spike when room is empty)
+    const now = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    chartLabels.push(now);
+    chartData.push(pct);
+    if (chartLabels.length > 60) { chartLabels.shift(); chartData.shift(); }
+    attentionChart.data.labels   = [...chartLabels];
+    attentionChart.data.datasets[0].data = [...chartData];
+    attentionChart.update('none');
+
+    if (state.alert_active) showAlertBanner(); else hideAlertBanner();
+    if (!PRIVACY_MODE && state.slots) updateSlotGrid(state.slots);
+}
+
+
+function updateGauge(pct) {
+    const fill   = document.getElementById('gauge-fill');
+    const pctEl  = document.getElementById('gauge-pct');
+    const circumference = 2 * Math.PI * 80; // r=80
+
+    // pct is null when no faces in frame
+    if (pct === null || pct === undefined) {
+        fill.style.strokeDashoffset = circumference;   // empty ring
+        fill.style.stroke           = 'rgba(255,255,255,0.1)';
+        pctEl.textContent           = '—';
+        pctEl.style.color           = 'var(--text-muted)';
+        return;
+    }
+
+    const offset = circumference - (pct / 100) * circumference;
+    fill.style.strokeDashoffset = offset;
+
+    let color;
+    if (pct >= 70)       color = '#00dc64';
+    else if (pct >= 50)  color = '#ffb400';
+    else                 color = '#dc3232';
+    fill.style.stroke = color;
+    pctEl.textContent = pct + '%';
+    pctEl.style.color = color;
+}
+
+function updateSlotGrid(slots) {
+    const grid = document.getElementById('slot-grid');
+    if (!slots.length) {
+        grid.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);grid-column:1/-1">No faces detected</div>';
+        return;
+    }
+    const icons = { attentive:'\uD83D\uDC41\uFE0F', uncertain:'\uD83D\uDE10', distracted:'\uD83D\uDE36' };
+    grid.innerHTML = slots.map(s => `
+        <div class="slot-card ${s.status}">
+            <div class="slot-icon">${icons[s.status] || '?'}</div>
+            <div style="font-size:0.7rem;font-weight:600">${Math.round(s.score * 100)}%</div>
+            ${s.drowsy ? '<div style="font-size:0.55rem;color:#ffb400;margin-top:2px">\u26A0 drowsy</div>' : ''}
+            <div class="slot-label">Slot ${s.id + 1}</div>
+        </div>
+    `).join('');
+}
+
+function showAlertBanner(msg) {
+    const banner = document.getElementById('alert-banner');
+    banner.classList.add('active');
+    if (msg) document.getElementById('alert-detail').textContent = msg;
+}
+function hideAlertBanner() {
+    document.getElementById('alert-banner').classList.remove('active');
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function exportCurrentReport() {
+    if (!currentSessionId) { showToast('No session to export yet.', 'warning'); return; }
+    window.location.href = `/dashboard/attention/session/${currentSessionId}/export/`;
+}
+
+// ── Timer ──────────────────────────────────────────────────────────────────
+function startTimer() {
+    timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+        const m = String(Math.floor(elapsed / 60)).padStart(2,'0');
+        const s = String(elapsed % 60).padStart(2,'0');
+        document.getElementById('session-timer').textContent = m + ':' + s;
+    }, 1000);
+}
+function stopTimer() {
+    clearInterval(timerInterval);
+    document.getElementById('session-timer').textContent = '';
+}
+</script>
+{% endblock %}

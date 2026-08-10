@@ -56,4 +56,73 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Attention Monitoring Settings (full-width, below the 2-col grid) -->
+<div class="card" style="margin-top:24px;border:1px solid var(--border-color)">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-brain" style="color:var(--accent-primary);margin-right:8px"></i>Attention Monitoring</h3>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:4px 0">
+        <div>
+            <div class="form-group">
+                <label class="form-label">Privacy Mode (Aggregate Only)</label>
+                <select class="form-control" id="attn-privacy">
+                    <option value="true" selected>Enabled — show class-wide % only (default, recommended)</option>
+                    <option value="false">Disabled — show anonymous per-slot cards in dashboard</option>
+                </select>
+                <small style="color:var(--text-muted);font-size:0.72rem;margin-top:4px;display:block">
+                    When enabled, no per-slot (anonymous) face cards are shown. Only class-wide attention % is displayed.
+                    Env var: <code>ATTENTION_PRIVACY_MODE</code>
+                </small>
+            </div>
+            <div class="form-group" style="margin-top:16px">
+                <label class="form-label">Alert Threshold (%)</label>
+                <input type="number" class="form-control" id="attn-threshold" value="50" min="10" max="90">
+                <small style="color:var(--text-muted);font-size:0.72rem;margin-top:4px;display:block">
+                    Alert fires when class attention drops below this % for the configured duration.
+                    Env var: <code>ATTENTION_ALERT_THRESHOLD</code>
+                </small>
+            </div>
+        </div>
+        <div>
+            <div class="form-group">
+                <label class="form-label">Alert Duration (seconds)</label>
+                <input type="number" class="form-control" id="attn-duration" value="30" min="5" max="300">
+                <small style="color:var(--text-muted);font-size:0.72rem;margin-top:4px;display:block">
+                    How long attention must stay below the threshold before an alert is triggered.
+                    Env var: <code>ATTENTION_ALERT_DURATION_SECS</code>
+                </small>
+            </div>
+            <div style="margin-top:16px;padding:14px;background:rgba(255,180,0,0.07);border:1px solid rgba(255,180,0,0.25);border-radius:8px;font-size:0.75rem;color:var(--text-muted)">
+                <i class="fas fa-exclamation-triangle" style="color:var(--warning);margin-right:6px"></i>
+                <strong>Note:</strong> These settings take effect for new sessions only.
+                For permanent changes, set the corresponding environment variables and restart the server.
+                See <a href="{% url 'attention:consent' %}" style="color:var(--accent-primary)">Privacy Notice</a>
+                before deploying in a classroom.
+            </div>
+        </div>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px">
+        <button class="btn btn-primary" onclick="saveAttentionSettings()"><i class="fas fa-save"></i> Apply to Next Session</button>
+        <a href="{% url 'attention:dashboard' %}" class="btn"><i class="fas fa-brain"></i> Open Attention Dashboard</a>
+        <a href="{% url 'attention:consent' %}" class="btn" style="margin-left:auto"><i class="fas fa-shield-alt"></i> Privacy Notice</a>
+    </div>
+</div>
+
+<script>
+async function saveAttentionSettings() {
+    const data = {
+        aggregate_only:    document.getElementById('attn-privacy').value === 'true',
+        alert_threshold:   parseInt(document.getElementById('attn-threshold').value),
+        alert_duration:    parseInt(document.getElementById('attn-duration').value),
+    };
+    const res = await fetch('{% url "attention:settings_save" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    const d = await res.json();
+    showToast(d.note || 'Attention settings saved!', 'info');
+}
+</script>
 {% endblock %}
